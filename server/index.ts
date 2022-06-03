@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import express, { Express, Request, Response } from "express";
+import express, { Express } from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import init from "./src/socket";
@@ -9,7 +9,7 @@ const app: Express = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3001",
+    origin: "http://localhost:3000",
     methods: ["GET", "POST"],
     credentials: true,
   },

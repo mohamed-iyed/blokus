@@ -1,7 +1,11 @@
-class Player {
+export class Player {
   id: string;
-  constructor(id: string) {
+  type: "human" | "bot";
+  color?: string;
+  constructor(id: string, type: "human" | "bot", color?: string) {
     this.id = id;
+    this.type = type;
+    this.color = color;
   }
 }
 
@@ -14,30 +18,61 @@ export default class Rooms {
   constructor() {
     this.rooms = new Map();
   }
-  create(roomId: string) {
-    if (this.has(roomId)) {
+  create(gameId: string) {
+    if (this.has(gameId)) {
       return console.log("room already exist");
     }
-    this.rooms.set(roomId, { players: [new Player(roomId)] });
+    this.rooms.set(gameId, { players: [] });
   }
-  addPlayer(roomId: string, player: any) {
-    if (this.rooms.has(roomId)) {
-      const room = this.rooms.get(roomId);
+  addPlayer(gameId: string, player: Player) {
+    if (this.rooms.has(gameId)) {
+      const room = this.rooms.get(gameId);
+
+      room?.players.push(player);
+    } else {
+      throw new Error("room not found");
+    }
+  }
+  removePlayer(gameId: string, playerId: string) {
+    if (this.has(gameId)) {
+      const room = this.get(gameId);
       if (room) {
-        room.players.push(player);
+        const players = room.players;
+        for (const player of players) {
+          if (player.id === playerId) {
+            const index = players.indexOf(player);
+            players.splice(index, 1);
+            return;
+          }
+        }
       }
     }
   }
-  has(roomId: string) {
-    return this.rooms.has(roomId);
+  has(gameId: string) {
+    return this.rooms.has(gameId);
   }
-  get(roomId: string) {
-    if (this.has(roomId)) {
-      return this.rooms.get(roomId);
+  get(gameId: string) {
+    if (this.has(gameId)) {
+      return this.rooms.get(gameId);
     }
     return null;
   }
-  delete(roomId: string) {
-    this.rooms.delete(roomId);
+  delete(gameId: string) {
+    this.rooms.delete(gameId);
+  }
+  isPlayerActive(playerId: string) {
+    const keys = this.rooms.keys();
+    for (const key of keys) {
+      const room = this.rooms.get(key);
+      if (room) {
+        const players = room.players;
+        for (const player of players) {
+          if (player.id === playerId) {
+            return { playerId: player.id, roomId: key };
+          }
+        }
+      }
+    }
+    return false;
   }
 }

@@ -13,3 +13,6 @@
 .btn {
   @apply px-4 py-2 border self-center rounded-md hover:shadow-md hover:translate-y-[-2px] transition-all;
 }
+.clip-triangle {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}

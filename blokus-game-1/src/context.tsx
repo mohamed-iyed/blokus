@@ -5,19 +5,36 @@ const socket: Socket = io("http://localhost:4000/", {
   withCredentials: true,
 });
 
-const channels: string[] = ["CREATE_GAME", "JOIN_GAME", "DELETE_GAME"];
+const channels: string[] = [
+  "CREATE_GAME",
+  "JOIN_GAME",
+  "DELETE_GAME",
+  "LEAVE_GAME",
+];
 
+export interface GameType {
+  code: string;
+  players: any[];
+}
 interface ContextType {
   socket: Socket;
   readonly channels: string[];
   step: Step;
   setStep: Function;
+  error: boolean;
+  setError: Function;
+  game: GameType;
+  setGame: Function;
 }
 const Context = createContext<ContextType>({
   socket,
   channels,
   step: { number: 0, type: null },
   setStep: () => {},
+  error: false,
+  setError: () => {},
+  game: { code: "", players: [] },
+  setGame: () => {},
 });
 
 // Context Provider
@@ -32,9 +49,22 @@ export interface Step {
 
 export function ContextProvider({ children }: ProviderProps) {
   const [step, setStep] = useState<Step>({ number: 0, type: null });
+  const [error, setError] = useState(false);
+  const [game, setGame] = useState({ code: "", players: [] });
 
   return (
-    <Context.Provider value={{ socket, channels, step, setStep }}>
+    <Context.Provider
+      value={{
+        socket,
+        channels,
+        step,
+        setStep,
+        error,
+        setError,
+        game,
+        setGame,
+      }}
+    >
       {children}
     </Context.Provider>
   );
