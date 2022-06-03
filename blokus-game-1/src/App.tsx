@@ -31,12 +31,30 @@ export default function App() {
     setStep({ type: null, number: 0 });
   }, [game.code, socket.id]);
 
+  // start the game if the number of joined players is 4 (or there is 4 bots)
+  const handleStartGame = useCallback(() => {
+    if (socket.id && game.code) {
+      if (socket.id === game.code) {
+        setStep({ number: 3, type: "createGame" });
+      } else {
+        setStep({ number: 3, type: "joinGame" });
+      }
+    }
+  }, [game.code, socket.id]);
+
   useEffect(() => {
     socket.on("NOTIFY", handleNotify);
     socket.on("JOIN_GAME", handleJoinGame);
     socket.on("GAME_PLAYERS", handleGamePlayersChange);
     socket.on("GAME_DELETED", handleGameDelete);
-  }, []);
+    socket.on("START_GAME", handleStartGame);
+    return () => {
+      socket.off("NOTIFY", handleNotify);
+      socket.off("JOIN_GAME", handleJoinGame);
+      socket.off("GAME_PLAYERS", handleGamePlayersChange);
+      socket.off("GAME_DELETED", handleGameDelete);
+    };
+  }, [handleGameDelete]);
 
   let content;
 
@@ -56,7 +74,7 @@ export default function App() {
   return (
     <main className="min-h-screen bg-slate-100 flex items-center justify-center">
       <ToastContainer />
-      <div className="container flex justify-center py-6 px-4 w-[300px] sm:w-auto sm:max-w-[400px] min-h-[200px] bg-white rounded-md border shadow-md">
+      <div className="container flex justify-center py-6 px-4 w-[300px] sm:w-auto min-h-[200px] bg-white rounded-md border shadow-md">
         {content}
       </div>
     </main>

@@ -4,7 +4,7 @@ import GameStage from "./GameStage";
 import Player from "./Player";
 import GameShape from "./Shape";
 
-interface matrixCell {
+export interface matrixCell {
   canPlace: any[];
   color: null | string;
   cell: Container;

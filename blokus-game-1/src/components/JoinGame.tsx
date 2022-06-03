@@ -99,12 +99,22 @@ function Step2() {
     </div>
   );
 }
+function Step3() {
+  useEffect(() => {}, []);
+  return (
+    <canvas id="canvas">
+      <h1>Your Browser does not support CANVAS API</h1>
+    </canvas>
+  );
+}
 export default function JoinGame({ step }: Props) {
   switch (step) {
     case 1:
       return <Step1 />;
     case 2:
       return <Step2 />;
+    case 3:
+      return <Step3 />;
     default:
       return <Step1 />;
   }

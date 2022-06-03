@@ -1,14 +1,95 @@
-import { Container, Stage } from "createjs-module";
+import { Container, Text } from "createjs-module";
 import Board from "./Board";
+import GameStage from "./GameStage";
 import Player from "./Player";
+import GameShape from "./Shape";
+
+interface ActiveShape {
+  container: Container;
+  canvasShapeContainer: Container;
+  current: GameShape;
+}
+
+interface TimeLeft {
+  container: Container;
+  current: number;
+  canvasText: Text;
+}
+
+interface ActivePlayer {
+  container: Container;
+  canvasText: Text;
+}
+interface Score {
+  color: string;
+  canvasElem: { container: Container; text: Text };
+  current: number;
+}
+type Scores = Score[];
 
 export default class ControlBoard extends Board {
+  // show the activeShape
+  private _activeShape: ActiveShape | any = {
+    container: this.makeContainer(25, 20),
+    canvasShapeContainer: new Container(),
+    current: undefined,
+  };
+  // acitve player
+  private _activePlayer: ActivePlayer | any = {
+    container: this.makeContainer(100, 340),
+    canvasText: undefined,
+  };
+  private _timeLeft: TimeLeft | any = {
+    container: this.makeContainer(130, 450),
+    current: 30,
+    canvasText: undefined,
+  };
+  private scores: Scores | any = [
+    {
+      color: null,
+      canvasElem: {
+        container: null,
+        text: null,
+      },
+      current: null,
+    },
+    {
+      color: null,
+      canvasElem: {
+        container: null,
+        text: null,
+      },
+      current: null,
+    },
+    {
+      color: null,
+      canvasElem: {
+        container: null,
+        text: null,
+      },
+      current: null,
+    },
+    {
+      color: null,
+      canvasElem: {
+        container: null,
+        text: null,
+      },
+      current: null,
+    },
+  ];
+
+  private skipTurnBtn: Container | null = null;
+  private endGameBtn: Container | null = null;
+  private doneBtn: Container | null = null;
+  private restartGameBtn: Container | null = null;
+
   constructor(
     width: number,
     height: number,
     x: number,
     y: number,
-    stage: Stage
+    stage: GameStage
   ) {
     super(width, height, x, y, stage);
   }
@@ -22,12 +103,6 @@ export default class ControlBoard extends Board {
       this.height,
       this.container
     );
-    // show the activeShape
-    this._activeShape = {
-      container: this.makeContainer(25, 20),
-      canvasShapeContainer: new Container(),
-      current: null,
-    };
 
     this.activeShape.canvasShapeContainer.set({
       x: 140,
@@ -65,7 +140,7 @@ export default class ControlBoard extends Board {
       75,
       this.activeShape.container,
       () => {
-        this.activeShape.current = this.activeShape.current.flip();
+        this.activeShape.current = this.activeShape.current?.flip();
       }
     );
     // rotate shape 90 deg left
@@ -77,7 +152,7 @@ export default class ControlBoard extends Board {
       75,
       this.activeShape.container,
       () => {
-        this.activeShape.current = this.activeShape.current.rotateLeft();
+        this.activeShape.current = this.activeShape.current?.rotateLeft();
       }
     );
     // rotate shape 90 deg right
@@ -89,15 +164,9 @@ export default class ControlBoard extends Board {
       75,
       this.activeShape.container,
       () => {
-        this.activeShape.current = this.activeShape.current.rotateRight();
+        this.activeShape.current = this.activeShape.current?.rotateRight();
       }
     );
-
-    // acitve player
-    this._activePlayer = {
-      container: this.makeContainer(100, 340),
-      canvasText: null,
-    };
 
     this.stage.drawRect("#FAFAFA", 0, 0, 200, 100, this.activePlayer.container);
     this.stage.addText(
@@ -109,7 +178,7 @@ export default class ControlBoard extends Board {
       25,
       this.activePlayer.container
     );
-    this.activePlayer.text = this.stage.addText(
+    this.activePlayer.canvasText = this.stage.addText(
       "red !",
       "bold 24px Arial",
       "red",
@@ -118,12 +187,6 @@ export default class ControlBoard extends Board {
       70,
       this.activePlayer.container
     );
-    // time left
-    this._timeLeft = {
-      container: this.makeContainer(130, 450),
-      current: 30,
-      canvasText: null,
-    };
 
     this.stage.drawRect("#FAFAFA", 0, 0, 150, 40, this._timeLeft.container);
     this.stage.addText(
@@ -135,7 +198,7 @@ export default class ControlBoard extends Board {
       20,
       this._timeLeft.container
     );
-    this._timeLeft.text = this.stage.addText(
+    this._timeLeft.canvasText = this.stage.addText(
       `${this._timeLeft.current}`,
       "20px Arial",
       "black",
@@ -145,40 +208,6 @@ export default class ControlBoard extends Board {
       this._timeLeft.container
     );
 
-    this.scores = [
-      {
-        color: null,
-        canvasElem: {
-          container: null,
-          text: null,
-        },
-        current: null,
-      },
-      {
-        color: null,
-        canvasElem: {
-          container: null,
-          text: null,
-        },
-        current: null,
-      },
-      {
-        color: null,
-        canvasElem: {
-          container: null,
-          text: null,
-        },
-        current: null,
-      },
-      {
-        color: null,
-        canvasElem: {
-          container: null,
-          text: null,
-        },
-        current: null,
-      },
-    ];
     players.forEach((player, i) => {
       this.scores[i].color = player.color;
       this.scores[i].current = 0;
@@ -192,7 +221,7 @@ export default class ControlBoard extends Board {
         0,
         100,
         30,
-        this.scores[i].canvasElem.container
+        this.scores[i]?.canvasElem?.container
       );
       this.stage.addText(
         "score : ",
@@ -291,8 +320,8 @@ export default class ControlBoard extends Board {
     this._timeLeft.canvasText.text = newTimeLeft;
     this.stage.update();
   }
-  changeColorScore(color, newScore) {
-    const score = this.scores.find((elem) => elem.color === color);
+  changeColorScore(color: string, newScore: number) {
+    const score = this.scores.find((elem: Score) => elem.color === color);
     score.canvasElem.text.text = newScore;
     this.stage.update();
   }

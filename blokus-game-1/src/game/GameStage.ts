@@ -31,7 +31,7 @@ export default class GameStage {
     clickHandler?: (eventObj: Object) => void
   ) {
     const image = new Image(width, height);
-    image.src = `./src/${src}`;
+    image.src = `/src/assets/images/${src}`;
     image.onload = handleLoad.bind(this);
 
     function handleLoad(this: GameStage, evt: any) {
@@ -66,7 +66,7 @@ export default class GameStage {
     y: number,
     width: number,
     height: number,
-    container: Container
+    container?: Container
   ) {
     const graphics = new Graphics();
     graphics.setStrokeStyle(1);

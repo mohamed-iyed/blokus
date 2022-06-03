@@ -43,14 +43,21 @@ function createRoomHandler(this: This, bots: Player[]) {
       rooms.addPlayer(this.socket.id, bot);
     }
     if (bots.length >= 4) {
+      this.io.to(this.socket.id).emit("GAME_PLAYERS", bots);
       this.io
         .to(this.socket.id)
-        .emit("NOTIFY", "success", "Game Started(only bots)");
+        .emit("NOTIFY", "success", "Game Starting ... (only bots)");
       this.io.to(this.socket.id).emit("START_GAME");
+      return;
     }
   }
   if (bots.length < 4) {
     rooms.addPlayer(this.socket.id, new Player(this.socket.id, "human"));
+  }
+
+  if (rooms.get(this.socket.id)?.players.length === 4) {
+    this.io.to(this.socket.id).emit("NOTIFY", "success", "Game Starting ...");
+    this.io.to(this.socket.id).emit("START_GAME");
   }
 
   const players = rooms.get(this.socket.id)?.players;
@@ -70,7 +77,9 @@ function joinRoomHandler(this: This, roomId: string) {
     const players = rooms.get(roomId)?.players;
 
     this.io.to(roomId).emit("GAME_PLAYERS", players);
+
     if (players?.length === 4) {
+      this.io.to(roomId).emit("NOTIFY", "success", "Game Starting ...");
       this.io.to(roomId).emit("START_GAME");
     }
   } else {

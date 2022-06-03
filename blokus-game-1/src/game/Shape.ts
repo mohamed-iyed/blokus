@@ -1,5 +1,7 @@
-import { Container } from "@createjs/easeljs";
+import { Container, DisplayObject } from "createjs-module";
 import extractMatrix from "../utils/extractSubMatrix";
+import GameStage from "./GameStage";
+import Player from "./Player";
 
 const shapes = [
   [
@@ -152,7 +154,14 @@ const shapes = [
 ];
 
 export default class Shape {
-  constructor(number, stage, player) {
+  number: number;
+  matrix: number[][];
+  stage: GameStage;
+  _canvasShape: DisplayObject | null;
+  _originalCanvasShape: DisplayObject | null;
+  player: Player;
+
+  constructor(number: number, stage: GameStage, player: Player) {
     this.number = number;
     this.matrix = [...shapes[this.number - 1].map((elem) => [...elem])];
     this.stage = stage;
@@ -213,7 +222,7 @@ export default class Shape {
     return this;
   }
   rotateLeft() {
-    for (let i = 0; i < parseInt(this.matrix.length / 2); i++) {
+    for (let i = 0; i < this.matrix.length / 2; i++) {
       for (let j = i; j < this.matrix[i].length - i - 1; j++) {
         // Swap elements of each cycle
         // in clockwise direction

@@ -8,6 +8,7 @@ import Copy from "../assets/images/Copy.svg";
 import Tick from "../assets/images/Tick.svg";
 // game
 import Game from "../game/Game";
+import Player from "../game/Player";
 
 function getBots(colorsRef: ColorsRefType) {
   const bots = [];
@@ -191,19 +192,26 @@ function Step2() {
         </p>
       </div>
       <div className="flex gap-2">
-        <NavBtn
-          text="Start"
-          cb={() => setStep({ type: "createGame", number: 3 })}
-        />
         <NavBtn text="Cancel" event="DELETE_GAME" />
       </div>
     </div>
   );
 }
 function Step3() {
-  useEffect(() => {}, []);
+  const canvasRef = useRef() as MutableRefObject<HTMLCanvasElement>;
+  const { game } = useAppContext();
+
+  useEffect(() => {
+    const newGame = new Game({
+      canvas: canvasRef.current,
+      cellWidth: 20,
+      gameBoardWidth: 0,
+      players: game.players,
+    });
+    newGame.start();
+  }, []);
   return (
-    <canvas id="canvas">
+    <canvas id="canvas" ref={canvasRef} width="1200" height="800">
       <h1>Your Browser does not support CANVAS API</h1>
     </canvas>
   );

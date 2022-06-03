@@ -3,6 +3,13 @@ import GameBoard from "./GameBoard";
 import GameStage from "./GameStage";
 import Player from "./Player";
 
+interface GameInfo {
+  canvas: HTMLCanvasElement;
+  gameBoardWidth: number;
+  cellWidth: number;
+  players: Player[];
+}
+
 export default class Game {
   gameStage: GameStage;
   players: Player[];
@@ -21,12 +28,7 @@ export default class Game {
     gameBoardWidth = 0,
     cellWidth = 20,
     players,
-  }: {
-    canvas: HTMLCanvasElement;
-    gameBoardWidth: number;
-    cellWidth: number;
-    players: Player[];
-  }) {
+  }: GameInfo) {
     this.gameStage = new GameStage(canvas, cellWidth);
     this.players = players;
 
