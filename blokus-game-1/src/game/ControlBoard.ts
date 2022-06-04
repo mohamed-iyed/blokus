@@ -94,23 +94,13 @@ export default class ControlBoard extends Board {
     super(width, height, x, y, stage);
   }
   draw(players: Player[]) {
-    // the background for the control board
-    this.stage.drawRect(
-      "#FAFAFA",
-      0,
-      0,
-      this.width,
-      this.height,
-      this.container
-    );
-
-    this.activeShape.canvasShapeContainer.set({
+    this._activeShape.canvasShapeContainer.set({
       x: 140,
       y: 150,
     });
 
     // active shape background
-    this.stage.drawRect("#F5F5F5", 0, 0, 350, 300, this.activeShape.container);
+    this.stage.drawRect("#F5F5F5", 0, 0, 350, 300, this._activeShape.container);
 
     this.stage.addText(
       "ACTIVE SHAPE",
@@ -119,18 +109,22 @@ export default class ControlBoard extends Board {
       "center",
       160,
       30,
-      this.activeShape.container
+      this._activeShape.container
     );
+
     this.stage.drawRect(
       "#FEFEFE",
       25,
       70,
       300,
       200,
-      this.activeShape.container
+      this._activeShape.container
     );
-    this.activeShape.container.addChild(this.activeShape.canvasShapeContainer);
+    this._activeShape.container.addChild(
+      this._activeShape.canvasShapeContainer
+    );
 
+    this.stage.update();
     // flip the active shape
     this.stage.addImage(
       30,
@@ -138,7 +132,7 @@ export default class ControlBoard extends Board {
       "rotate360.svg",
       160,
       75,
-      this.activeShape.container,
+      this._activeShape.container,
       () => {
         this.activeShape.current = this.activeShape.current?.flip();
       }
@@ -150,7 +144,7 @@ export default class ControlBoard extends Board {
       "rotate90left.svg",
       190,
       75,
-      this.activeShape.container,
+      this._activeShape.container,
       () => {
         this.activeShape.current = this.activeShape.current?.rotateLeft();
       }
@@ -162,13 +156,21 @@ export default class ControlBoard extends Board {
       "rotate90right.svg",
       130,
       75,
-      this.activeShape.container,
+      this._activeShape.container,
       () => {
         this.activeShape.current = this.activeShape.current?.rotateRight();
       }
     );
 
-    this.stage.drawRect("#FAFAFA", 0, 0, 200, 100, this.activePlayer.container);
+    // active player
+    this.stage.drawRect(
+      "#FAFAFA",
+      0,
+      0,
+      200,
+      100,
+      this._activePlayer.container
+    );
     this.stage.addText(
       "Current player : ",
       "bold 24px Arial",
@@ -176,16 +178,16 @@ export default class ControlBoard extends Board {
       "center",
       100,
       25,
-      this.activePlayer.container
+      this._activePlayer.container
     );
-    this.activePlayer.canvasText = this.stage.addText(
+    this._activePlayer.canvasText = this.stage.addText(
       "red !",
       "bold 24px Arial",
       "red",
       "center",
       95,
       70,
-      this.activePlayer.container
+      this._activePlayer.container
     );
 
     this.stage.drawRect("#FAFAFA", 0, 0, 150, 40, this._timeLeft.container);
@@ -256,19 +258,7 @@ export default class ControlBoard extends Board {
       25,
       this.skipTurnBtn
     );
-    // end game btn
-    this.endGameBtn = this.makeContainer(150, 650);
-    this.endGameBtn.cursor = "pointer";
-    this.stage.drawRect("#CCC", 0, 0, 120, 50, this.endGameBtn);
-    this.stage.addText(
-      "End game",
-      "bold 20px Arial",
-      "#FAFAFA",
-      "center",
-      60,
-      25,
-      this.endGameBtn
-    );
+
     // done btn
     this.doneBtn = this.makeContainer(275, 650);
     this.doneBtn.cursor = "pointer";
@@ -281,6 +271,21 @@ export default class ControlBoard extends Board {
       45,
       25,
       this.doneBtn
+    );
+  }
+  drawControlBtns() {
+    // end game btn
+    this.endGameBtn = this.makeContainer(150, 650);
+    this.endGameBtn.cursor = "pointer";
+    this.stage.drawRect("#CCC", 0, 0, 120, 50, this.endGameBtn);
+    this.stage.addText(
+      "End game",
+      "bold 20px Arial",
+      "#FAFAFA",
+      "center",
+      60,
+      25,
+      this.endGameBtn
     );
     // restart game btn
     this.restartGameBtn = this.makeContainer(130, 710);

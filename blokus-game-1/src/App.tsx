@@ -5,6 +5,7 @@ import JoinGame from "./components/JoinGame";
 import Welcome from "./components/Welcome";
 import { GameType, useAppContext } from "./context";
 import "react-toastify/dist/ReactToastify.min.css";
+import Player from "./game/Player";
 
 type allowedTypes = "success" | "error" | "info" | "warning";
 
@@ -22,7 +23,7 @@ export default function App() {
   }, []);
 
   // handle new players join to the game
-  const handleGamePlayersChange = useCallback((players: any[]) => {
+  const handleGamePlayersChange = useCallback((players: Player[]) => {
     setGame((prev: GameType) => ({ ...prev, players }));
   }, []);
 
@@ -53,8 +54,15 @@ export default function App() {
       socket.off("JOIN_GAME", handleJoinGame);
       socket.off("GAME_PLAYERS", handleGamePlayersChange);
       socket.off("GAME_DELETED", handleGameDelete);
+      socket.off("START_GAME", handleStartGame);
     };
-  }, [handleGameDelete]);
+  }, [
+    handleNotify,
+    handleGameDelete,
+    handleGamePlayersChange,
+    handleGameDelete,
+    handleStartGame,
+  ]);
 
   let content;
 

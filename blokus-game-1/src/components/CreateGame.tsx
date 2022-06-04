@@ -141,7 +141,7 @@ function Step1() {
 function Step2() {
   const {
     socket,
-    setStep,
+
     game: { code, players },
   } = useAppContext();
   const [ticked, setTicked] = useState(false);
@@ -161,7 +161,7 @@ function Step2() {
         <span
           className="bg-gray-200 p-1 rounded-md shadow-md cursor-pointer relative"
           onClick={() => {
-            navigator.clipboard.writeText(socket.id);
+            navigator.clipboard.writeText(code);
             setTicked(true);
           }}
         >
@@ -209,6 +209,7 @@ function Step3() {
       players: game.players,
     });
     newGame.start();
+    newGame.controlBoard.drawControlBtns();
   }, []);
   return (
     <canvas id="canvas" ref={canvasRef} width="1200" height="800">

@@ -3,7 +3,8 @@ import NavBtn from "./NavButton";
 import Spinner from "./Spinner";
 import Copy from "../assets/images/Copy.svg";
 import Tick from "../assets/images/Tick.svg";
-import { useEffect, useState } from "react";
+import { MutableRefObject, useEffect, useRef, useState } from "react";
+import Game from "../game/Game";
 
 interface Props {
   step: number;
@@ -16,6 +17,7 @@ function Step1() {
     setStep,
   } = useAppContext();
 
+  console.log(code);
   return (
     <div className="flex flex-col justify-between items-center">
       <h2>Join a Game</h2>
@@ -59,7 +61,7 @@ function Step2() {
         <span
           className="bg-gray-200 p-1 rounded-md shadow-md cursor-pointer relative"
           onClick={() => {
-            navigator.clipboard.writeText(socket.id);
+            navigator.clipboard.writeText(code);
             setTicked(true);
           }}
         >
@@ -100,9 +102,21 @@ function Step2() {
   );
 }
 function Step3() {
-  useEffect(() => {}, []);
+  const canvasRef = useRef() as MutableRefObject<HTMLCanvasElement>;
+  const { game } = useAppContext();
+
+  useEffect(() => {
+    console.log(game.players);
+    const newGame = new Game({
+      canvas: canvasRef.current,
+      cellWidth: 20,
+      gameBoardWidth: 0,
+      players: game.players,
+    });
+    newGame.start();
+  }, []);
   return (
-    <canvas id="canvas">
+    <canvas id="canvas" ref={canvasRef}>
       <h1>Your Browser does not support CANVAS API</h1>
     </canvas>
   );
