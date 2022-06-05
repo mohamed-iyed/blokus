@@ -2,15 +2,18 @@ export class Player {
   id: string;
   type: "human" | "bot";
   color?: string;
+  shapes: any[];
+
   constructor(id: string, type: "human" | "bot", color?: string) {
     this.id = id;
     this.type = type;
     this.color = color;
+    this.shapes = [];
   }
 }
 
-interface Room {
-  players: any[];
+export interface Room {
+  players: Player[];
 }
 export default class Rooms {
   rooms: Map<string, Room>;
