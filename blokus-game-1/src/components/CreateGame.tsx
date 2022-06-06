@@ -199,17 +199,28 @@ function Step2() {
 }
 function Step3() {
   const canvasRef = useRef() as MutableRefObject<HTMLCanvasElement>;
-  const { game } = useAppContext();
+  const { game, socket } = useAppContext();
 
   useEffect(() => {
     const newGame = new Game({
       canvas: canvasRef.current,
       cellWidth: 20,
       gameBoardWidth: 0,
-      players: game.players,
+      players: game.players.map((player) => {
+        if (player.id === socket.id) {
+          return {
+            ...player,
+            isMe: true,
+          };
+        }
+        return player;
+      }),
+      socket,
+      gameCode: game.code,
     });
     newGame.start();
     newGame.controlBoard.drawControlBtns();
+    newGame.controlBoard.activePlayer = game.activePlayer;
   }, []);
   return (
     <canvas id="canvas" ref={canvasRef} width="1200" height="800">

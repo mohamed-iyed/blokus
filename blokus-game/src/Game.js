@@ -146,59 +146,7 @@ function canPlaceInZone(context, startI, startJ, color, matrix) {
   return hasColor;
 }
 // darw shape on hover
-function drawOnHover(e) {
-  const _this = e.currentTarget.context;
-  const [x, y] = e.currentTarget.coords;
-  const startI = x - 2;
-  const startJ = y - 2;
 
-  if (_this._activeShape) {
-    for (let i = 0; i < _this.activeShape.matrix.length; i++) {
-      for (let j = 0; j < _this.activeShape.matrix[i].length; j++) {
-        if (
-          _this.activeShape.matrix[i][j] === 1 &&
-          (!_this.board[i + startI] ||
-            !_this.board[i + startI][j + startJ] ||
-            _this.board[i + startI][j + startJ].color ||
-            // check right cell
-            (_this.board[i + startI][j + startJ + 1] &&
-              _this.board[i + startI][j + startJ + 1].color ===
-                _this.activePlayer.color) ||
-            // check top cell
-            (_this.board[i + startI - 1] &&
-              _this.board[i + startI - 1][j + startJ] &&
-              _this.board[i + startI - 1][j + startJ].color ===
-                _this.activePlayer.color) ||
-            // check left cell
-            (_this.board[i + startI][j + startJ - 1] &&
-              _this.board[i + startI][j + startJ - 1].color ===
-                _this.activePlayer.color) ||
-            // check bottom cell
-            (_this.board[i + startI + 1] &&
-              _this.board[i + startI + 1][j + startJ] &&
-              _this.board[i + startI + 1][j + startJ].color ===
-                _this.activePlayer.color))
-        ) {
-          return;
-        }
-      }
-    }
-
-    for (let i = 0; i < _this.activeShape.matrix.length; i++) {
-      for (let j = 0; j < _this.activeShape.matrix[i].length; j++) {
-        if (_this.activeShape.matrix[i][j] === 1) {
-          const shape = _this.container.elem.children.find(
-            (elem) =>
-              elem.coords[0] === i + startI && elem.coords[1] === j + startJ
-          );
-          shape.mouseOver = true;
-          shape.children[0].graphics._fill.style = _this.activePlayer.color;
-          _this.updateStage();
-        }
-      }
-    }
-  }
-}
 // undraw shape on mouse out
 function undrawOnOut(e) {
   const _this = e.currentTarget.context;

@@ -1,4 +1,5 @@
 import { Container } from "createjs-module";
+import Game from "./Game";
 import GameStage from "./GameStage";
 
 export default class Board {
@@ -6,12 +7,15 @@ export default class Board {
   height: number;
   container: Container;
   stage: GameStage;
+  game: Game;
+
   constructor(
     width: number,
     height: number,
     x: number,
     y: number,
-    stage: GameStage
+    stage: GameStage,
+    game: Game
   ) {
     this.width = width;
     this.height = height;
@@ -21,6 +25,7 @@ export default class Board {
       y,
     });
     this.stage = stage;
+    this.game = game;
     this.stage.addChild(this.container);
   }
   makeContainer(x = 0, y = 0) {

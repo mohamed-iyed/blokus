@@ -1,13 +1,17 @@
+import { Socket } from "socket.io-client";
 import ControlBoard from "./ControlBoard";
 import GameBoard from "./GameBoard";
 import GameStage from "./GameStage";
 import Player from "./Player";
+import Shape from "./Shape";
 
 interface GameInfo {
   canvas: HTMLCanvasElement;
   gameBoardWidth: number;
   cellWidth: number;
   players: Player[];
+  socket: Socket;
+  gameCode: string;
 }
 
 export default class Game {
@@ -15,6 +19,9 @@ export default class Game {
   players: Player[];
   gameBoard: GameBoard;
   controlBoard: ControlBoard;
+  me: any;
+  socket: Socket;
+  gameCode: string;
 
   #FALLBACK_GAME_DIMENSTIONS = (canvasWidth: number) => {
     const oneThird = canvasWidth / 3;
@@ -23,14 +30,20 @@ export default class Game {
       controlBoardWidth: oneThird,
     };
   };
+
   constructor({
     canvas,
     gameBoardWidth = 0,
     cellWidth = 20,
     players,
+    socket,
+    gameCode,
   }: GameInfo) {
     this.gameStage = new GameStage(canvas, cellWidth);
     this.players = players;
+    this.me = this.players.find((player) => player.isMe);
+    this.socket = socket;
+    this.gameCode = gameCode;
 
     // calculate dimensions
     let controlBoardWidth;
@@ -51,18 +64,27 @@ export default class Game {
       canvas.offsetHeight,
       0,
       0,
-      this.gameStage
+      this.gameStage,
+      this
     );
     this.controlBoard = new ControlBoard(
       controlBoardWidth,
       canvas.offsetHeight,
       gameBoardWidth,
       0,
-      this.gameStage
+      this.gameStage,
+      this
     );
   }
   start() {
     this.gameBoard.draw(this.players);
     this.controlBoard.draw(this.players);
+  }
+
+  endTurn() {
+    this.controlBoard.activePlayer = null;
+    this.controlBoard.activeShape = null;
+    this.controlBoard.endTimer();
+    this.socket.emit("END_TURN", this.gameCode);
   }
 }

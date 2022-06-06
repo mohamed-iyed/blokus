@@ -5,6 +5,7 @@ export default class Player {
   type: "human" | "bot";
   color: string;
   shapes: GameShape[];
+  isMe?: boolean;
   constructor(id: string, type: "human" | "bot", color: string) {
     this.id = id;
     this.type = type;

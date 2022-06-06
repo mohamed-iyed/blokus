@@ -1,21 +1,36 @@
 import { Container, Text } from "createjs-module";
+import { toast } from "react-toastify";
 import Board from "./Board";
+import Game from "./Game";
 import GameStage from "./GameStage";
 import Player from "./Player";
 import GameShape from "./Shape";
+
+function changeShapeStatus(this: ControlBoard, status: string) {
+  switch (status) {
+    case "flip":
+      this.activeShape = this.activeShape?.flip();
+      break;
+    case "rotateLeft":
+      this.activeShape = this.activeShape?.rotateLeft();
+      break;
+    case "rotateRight":
+      this.activeShape = this.activeShape?.rotateRight();
+      break;
+  }
+}
 
 interface ActiveShape {
   container: Container;
   canvasShapeContainer: Container;
   current: GameShape;
 }
-
 interface TimeLeft {
   container: Container;
   current: number;
   canvasText: Text;
+  timer: number;
 }
-
 interface ActivePlayer {
   container: Container;
   canvasText: Text;
@@ -29,7 +44,7 @@ type Scores = Score[];
 
 export default class ControlBoard extends Board {
   // show the activeShape
-  private _activeShape: ActiveShape | any = {
+  _activeShape: ActiveShape | any = {
     container: this.makeContainer(25, 20),
     canvasShapeContainer: new Container(),
     current: undefined,
@@ -39,10 +54,11 @@ export default class ControlBoard extends Board {
     container: this.makeContainer(100, 340),
     canvasText: undefined,
   };
-  private _timeLeft: TimeLeft | any = {
+  _timeLeft: TimeLeft | any = {
     container: this.makeContainer(130, 450),
     current: 30,
     canvasText: undefined,
+    timer: null,
   };
   private scores: Scores | any = [
     {
@@ -89,16 +105,48 @@ export default class ControlBoard extends Board {
     height: number,
     x: number,
     y: number,
-    stage: GameStage
+    stage: GameStage,
+    game: Game
   ) {
-    super(width, height, x, y, stage);
+    super(width, height, x, y, stage, game);
+
+    this.game.socket.on("ACTIVE_PLAYER", (activePlayerId: any) => {
+      if (activePlayerId) {
+        // handled by the activePlayer setter
+        this.activePlayer = activePlayerId;
+      }
+    });
+
+    this.game.socket.on("TIME_LEFT", (timeLeft: any) => {
+      if (this._activePlayer.current !== this.game.me) {
+        if (timeLeft) {
+          this.timeLeft = timeLeft;
+        } else {
+          this.timeLeft = 30;
+          this.activeShape = null;
+        }
+      }
+    });
+    this.game.socket.on("ACTIVE_SHAPE", (activeShapeNumber: any) => {
+      if (this._activePlayer.current !== this.game.me && this.activePlayer) {
+        const shape = this._activePlayer.current.shapes.find(
+          (shape: GameShape) => shape.number === activeShapeNumber
+        );
+
+        this.activeShape = shape;
+      }
+    });
+    this.game.socket.on("CHANGE_ACTIVE_SHAPE", (status: string) => {
+      if (this._activePlayer.current !== this.game.me) {
+        changeShapeStatus.call(this, status);
+      }
+    });
   }
   draw(players: Player[]) {
     this._activeShape.canvasShapeContainer.set({
       x: 140,
       y: 150,
     });
-
     // active shape background
     this.stage.drawRect("#F5F5F5", 0, 0, 350, 300, this._activeShape.container);
 
@@ -134,7 +182,16 @@ export default class ControlBoard extends Board {
       75,
       this._activeShape.container,
       () => {
-        this.activeShape.current = this.activeShape.current?.flip();
+        if (this.activePlayer === this.game.me) {
+          changeShapeStatus.call(this, "flip");
+          this.game.socket.emit(
+            "CHANGE_ACTIVE_SHAPE",
+            "flip",
+            this.game.gameCode
+          );
+        } else {
+          toast.warn("Not Your Turn");
+        }
       }
     );
     // rotate shape 90 deg left
@@ -146,7 +203,16 @@ export default class ControlBoard extends Board {
       75,
       this._activeShape.container,
       () => {
-        this.activeShape.current = this.activeShape.current?.rotateLeft();
+        if (this.activePlayer === this.game.me) {
+          changeShapeStatus.call(this, "rotateLeft");
+          this.game.socket.emit(
+            "CHANGE_ACTIVE_SHAPE",
+            "rotateLeft",
+            this.game.gameCode
+          );
+        } else {
+          toast.warn("Not Your Turn");
+        }
       }
     );
     // rotate shape 90 deg right
@@ -158,7 +224,16 @@ export default class ControlBoard extends Board {
       75,
       this._activeShape.container,
       () => {
-        this.activeShape.current = this.activeShape.current?.rotateRight();
+        if (this.activePlayer === this.game.me) {
+          changeShapeStatus.call(this, "rotateRight");
+          this.game.socket.emit(
+            "CHANGE_ACTIVE_SHAPE",
+            "rotateRight",
+            this.game.gameCode
+          );
+        } else {
+          toast.warn("Not Your Turn");
+        }
       }
     );
 
@@ -181,7 +256,7 @@ export default class ControlBoard extends Board {
       this._activePlayer.container
     );
     this._activePlayer.canvasText = this.stage.addText(
-      "red !",
+      "",
       "bold 24px Arial",
       "red",
       "center",
@@ -301,20 +376,76 @@ export default class ControlBoard extends Board {
       this.restartGameBtn
     );
   }
+  startTimer() {
+    this._timeLeft.timer = setInterval(() => {
+      this.timeLeft = --this._timeLeft.current;
+      this.game.socket.emit(
+        "TIME_LEFT",
+        this._timeLeft.current,
+        this.game.gameCode
+      );
+      if (this._timeLeft.current === 0) {
+        this.game.endTurn();
+      }
+    }, 1000);
+  }
+  endTimer() {
+    clearInterval(this._timeLeft.timer);
+    this.timeLeft = 30;
+  }
   get activeShape() {
-    return this._activeShape;
+    return this._activeShape.current;
   }
   set activeShape(newActiveShape) {
-    this._activeShape.current = newActiveShape;
-    this._activeShape.canvasShapeContainer.removeAllChildren();
-    this._activeShape.canvasShapeContainer.addChild(newActiveShape.canvasShape);
+    if (newActiveShape) {
+      this._activeShape.current = newActiveShape;
+      this._activeShape.canvasShapeContainer.removeAllChildren();
+      const canvasShapeClone =
+        this._activeShape.current.canvasShape.clone(true);
+      canvasShapeClone.set({
+        x: 0,
+        y: 0,
+      });
+      this._activeShape.canvasShape = canvasShapeClone;
+
+      this._activeShape.canvasShapeContainer.addChild(
+        this._activeShape.canvasShape
+      );
+    } else {
+      this._activeShape.current = null;
+      this._activeShape.canvasShapeContainer.removeAllChildren();
+    }
     this.stage.update();
   }
   get activePlayer() {
-    return this._activePlayer;
+    return this._activePlayer.current;
   }
   set activePlayer(newActivePlayer) {
-    this._activePlayer.canvasText.text = newActivePlayer;
+    if (newActivePlayer) {
+      // finding the player
+      if (typeof newActivePlayer === "string") {
+        this._activePlayer.current = this.game.players.find(
+          (player) => player.id === newActivePlayer
+        );
+      } else {
+        this._activePlayer.current = newActivePlayer;
+      }
+
+      // if active player is me then enable the game board
+      if (this._activePlayer.current === this.game.me) {
+        this._activePlayer.canvasText.text = "You !";
+        this._activePlayer.canvasText.color = this._activePlayer.current.color;
+        this.game.gameBoard.enable(this.game.me);
+        this.startTimer();
+      } else {
+        this._activePlayer.canvasText.text = this._activePlayer.current.color;
+        this._activePlayer.canvasText.color = this._activePlayer.current.color;
+        this.game.gameBoard.disable();
+      }
+    } else {
+      this._activePlayer.canvasText.text = null;
+      this.game.gameBoard.disable();
+    }
     this.stage.update();
   }
   get timeLeft() {

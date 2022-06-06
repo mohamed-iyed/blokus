@@ -33,15 +33,26 @@ export default function App() {
   }, [game.code, socket.id]);
 
   // start the game if the number of joined players is 4 (or there is 4 bots)
-  const handleStartGame = useCallback(() => {
-    if (socket.id && game.code) {
-      if (socket.id === game.code) {
-        setStep({ number: 3, type: "createGame" });
-      } else {
-        setStep({ number: 3, type: "joinGame" });
+  const handleStartGame = useCallback(
+    (activePlayer: string | null) => {
+      // set the active player
+      setGame((prev: GameType) => ({ ...prev, activePlayer }));
+      // start the game
+      if (socket.id && game.code) {
+        if (socket.id === game.code) {
+          setStep({ number: 3, type: "createGame" });
+        } else {
+          setStep({ number: 3, type: "joinGame" });
+        }
       }
-    }
-  }, [game.code, socket.id]);
+    },
+    [game.code, socket.id]
+  );
+
+  // handle change active player
+  const handleActivePlayer = useCallback((activePlayer: string | null) => {
+    setGame((prev: GameType) => ({ ...prev, activePlayer }));
+  }, []);
 
   useEffect(() => {
     socket.on("NOTIFY", handleNotify);
@@ -49,12 +60,15 @@ export default function App() {
     socket.on("GAME_PLAYERS", handleGamePlayersChange);
     socket.on("GAME_DELETED", handleGameDelete);
     socket.on("START_GAME", handleStartGame);
+    socket.on("ACTIVE_PLAYER", handleActivePlayer);
+
     return () => {
       socket.off("NOTIFY", handleNotify);
       socket.off("JOIN_GAME", handleJoinGame);
       socket.off("GAME_PLAYERS", handleGamePlayersChange);
       socket.off("GAME_DELETED", handleGameDelete);
       socket.off("START_GAME", handleStartGame);
+      socket.off("ACTIVE_PLAYER", handleActivePlayer);
     };
   }, [
     handleNotify,
@@ -62,6 +76,7 @@ export default function App() {
     handleGamePlayersChange,
     handleGameDelete,
     handleStartGame,
+    handleActivePlayer,
   ]);
 
   let content;

@@ -17,7 +17,6 @@ function Step1() {
     setStep,
   } = useAppContext();
 
-  console.log(code);
   return (
     <div className="flex flex-col justify-between items-center">
       <h2>Join a Game</h2>
@@ -103,20 +102,30 @@ function Step2() {
 }
 function Step3() {
   const canvasRef = useRef() as MutableRefObject<HTMLCanvasElement>;
-  const { game } = useAppContext();
+  const { game, socket } = useAppContext();
 
   useEffect(() => {
-    console.log(game.players);
     const newGame = new Game({
       canvas: canvasRef.current,
       cellWidth: 20,
       gameBoardWidth: 0,
-      players: game.players,
+      players: game.players.map((player) => {
+        if (player.id === socket.id) {
+          return {
+            ...player,
+            isMe: true,
+          };
+        }
+        return player;
+      }),
+      socket,
+      gameCode: game.code,
     });
     newGame.start();
+    newGame.controlBoard.activePlayer = game.activePlayer;
   }, []);
   return (
-    <canvas id="canvas" ref={canvasRef}>
+    <canvas id="canvas" width="1200" height="800" ref={canvasRef}>
       <h1>Your Browser does not support CANVAS API</h1>
     </canvas>
   );

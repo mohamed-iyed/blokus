@@ -1,5 +1,6 @@
 import { Container } from "createjs-module";
 import Board from "./Board";
+import Game from "./Game";
 import GameStage from "./GameStage";
 import Player from "./Player";
 import GameShape from "./Shape";
@@ -8,6 +9,7 @@ export interface matrixCell {
   canPlace: any[];
   color: null | string;
   cell: Container;
+  mouseOver: boolean;
 }
 
 class CellsBoard {
@@ -30,16 +32,353 @@ class CellsBoard {
         });
         stage.drawRect("#CCC", 0, 0, stage.cellWidth, stage.cellWidth, cell);
         this.container.addChild(cell);
-        this.matrix[i].push({ canPlace: [], color: null, cell });
+        this.matrix[i].push({
+          canPlace: [],
+          color: null,
+          cell,
+          mouseOver: false,
+        });
       }
     }
   }
   *[Symbol.iterator]() {
     for (let i = 0; i < this.matrix.length; i++) {
       for (let j = 0; j < this.matrix[i].length; j++) {
-        yield this.matrix[i][j];
+        yield { coords: [i, j], boardCell: this.matrix[i][j] };
       }
     }
+  }
+}
+
+// draw shape on hover
+function drawOnHover(this: GameBoard, coords: number[]) {
+  const [x, y] = coords;
+  const startI = x - 2;
+  const startJ = y - 2;
+
+  if (this.game.controlBoard.activeShape) {
+    if (this.game.controlBoard.activePlayer === this.game.me) {
+      this.game.socket.emit("DRAW_ON_HOVER", coords, this.game.gameCode);
+    }
+    for (let i = 0; i < this.game.controlBoard.activeShape.matrix.length; i++) {
+      for (
+        let j = 0;
+        j < this.game.controlBoard.activeShape.matrix[i].length;
+        j++
+      ) {
+        if (
+          this.game.controlBoard.activeShape.matrix[i][j] === 1 &&
+          (!this.board.matrix[i + startI] ||
+            !this.board.matrix[i + startI][j + startJ] ||
+            this.board.matrix[i + startI][j + startJ].color ||
+            // check right cell
+            (this.board.matrix[i + startI][j + startJ + 1] &&
+              this.board.matrix[i + startI][j + startJ + 1].color ===
+                this.game.controlBoard.activePlayer.color) ||
+            // check top cell
+            (this.board.matrix[i + startI - 1] &&
+              this.board.matrix[i + startI - 1][j + startJ] &&
+              this.board.matrix[i + startI - 1][j + startJ].color ===
+                this.game.controlBoard.activePlayer.color) ||
+            // check left cell
+            (this.board.matrix[i + startI][j + startJ - 1] &&
+              this.board.matrix[i + startI][j + startJ - 1].color ===
+                this.game.controlBoard.activePlayer.color) ||
+            // check bottom cell
+            (this.board.matrix[i + startI + 1] &&
+              this.board.matrix[i + startI + 1][j + startJ] &&
+              this.board.matrix[i + startI + 1][j + startJ].color ===
+                this.game.controlBoard.activePlayer.color))
+        ) {
+          return;
+        }
+      }
+    }
+
+    for (let i = 0; i < this.game.controlBoard.activeShape.matrix.length; i++) {
+      for (
+        let j = 0;
+        j < this.game.controlBoard.activeShape.matrix[i].length;
+        j++
+      ) {
+        if (this.game.controlBoard.activeShape.matrix[i][j] === 1) {
+          this.board.matrix[i + startI][j + startJ].mouseOver = true;
+          this.board.matrix[i + startI][
+            j + startJ
+          ].cell.children[0].graphics._fill.style =
+            this.game.controlBoard.activePlayer.color;
+
+          this.stage.update();
+        }
+      }
+    }
+  }
+}
+// undraw shape on mouse out
+function undrawOnOut(this: GameBoard, coords: number[]) {
+  const [x, y] = coords;
+  const startI = x - 2;
+  const startJ = y - 2;
+
+  if (this.game.controlBoard.activeShape) {
+    if (this.game.controlBoard.activePlayer === this.game.me) {
+      this.game.socket.emit("UNDRAW_ON_OUT", coords, this.game.gameCode);
+    }
+    for (let i = 0; i < this.game.controlBoard.activeShape.matrix.length; i++) {
+      for (
+        let j = 0;
+        j < this.game.controlBoard.activeShape.matrix[i].length;
+        j++
+      ) {
+        if (
+          this.game.controlBoard.activeShape.matrix[i][j] === 1 &&
+          this.board.matrix[i + startI] &&
+          this.board.matrix[i + startI][j + startJ] &&
+          this.board.matrix[i + startI][j + startJ].mouseOver
+        ) {
+          this.board.matrix[i + startI][
+            j + startJ
+          ].cell.children[0].graphics._fill.style = "#CCC";
+          this.board.matrix[i + startI][j + startJ].mouseOver = false;
+          this.stage.update();
+        }
+      }
+    }
+  }
+}
+// check if can place in cell
+function canPlaceInZone(
+  this: GameBoard,
+  startI: number,
+  startJ: number,
+  color: string,
+  matrix: number[][]
+) {
+  let hasColor = false;
+  mainfor: for (let i = 0; i < matrix.length; i++) {
+    for (let j = 0; j < matrix[i].length; j++) {
+      if (
+        matrix[i][j] === 1 &&
+        (!this.board.matrix[i + startI] ||
+          !this.board.matrix[i + startI][j + startJ] ||
+          this.board.matrix[i + startI][j + startJ].color ||
+          // check right cell
+          (this.board.matrix[i + startI][j + startJ + 1] &&
+            this.board.matrix[i + startI][j + startJ + 1].color ===
+              this.game.controlBoard.activePlayer.color) ||
+          // check top cell
+          (this.board.matrix[i + startI - 1] &&
+            this.board.matrix[i + startI - 1][j + startJ] &&
+            this.board.matrix[i + startI - 1][j + startJ].color ===
+              this.game.controlBoard.activePlayer.color) ||
+          // check left cell
+          (this.board.matrix[i + startI][j + startJ - 1] &&
+            this.board.matrix[i + startI][j + startJ - 1].color ===
+              this.game.controlBoard.activePlayer.color) ||
+          // check bottom cell
+          (this.board.matrix[i + startI + 1] &&
+            this.board.matrix[i + startI + 1][j + startJ] &&
+            this.board.matrix[i + startI + 1][j + startJ].color ===
+              this.game.controlBoard.activePlayer.color))
+      ) {
+        return false;
+      }
+
+      if (matrix[i][j] === 1) {
+        if (
+          this.board.matrix[i + startI][j + startJ].canPlace.includes(color)
+        ) {
+          hasColor = true;
+        }
+      }
+    }
+  }
+
+  return hasColor;
+}
+// click on cell to place shape
+function handleClick(this: GameBoard, coords: number[]) {
+  const [x, y] = coords;
+  const [startI, startJ] = [x - 2, y - 2];
+  if (
+    this.game.controlBoard.activeShape &&
+    canPlaceInZone.call(
+      this,
+      startI,
+      startJ,
+      this.game.controlBoard.activePlayer.color,
+      this.game.controlBoard.activeShape.matrix
+    )
+  ) {
+    // string because of objects reference
+    const toColorCellsCoords: string[] = [];
+
+    for (let i = 0; i < this.game.controlBoard.activeShape.matrix.length; i++) {
+      for (
+        let j = 0;
+        j < this.game.controlBoard.activeShape.matrix[i].length;
+        j++
+      ) {
+        if (this.game.controlBoard.activeShape.matrix[i][j] === 1) {
+          this.board.matrix[i + startI][j + startJ].color =
+            this.game.controlBoard.activePlayer.color;
+          toColorCellsCoords.push(`${i + startI}-${j + startJ}`);
+        }
+      }
+    }
+    // _this.container.elem.children.forEach((shape) => {
+    //   const shapeCoords = `${shape.coords[0]}-${shape.coords[1]}`;
+    //   if (coords.includes(shapeCoords)) {
+    //     shape.mouseOver = false;
+    //     shape.alpha = 1;
+    //     shape.children[0].graphics._fill.style = _this.activePlayer.color;
+    //     _this.board[shape.coords[0]][shape.coords[1]].color =
+    //       _this.activePlayer.color;
+    //     _this.board[shape.coords[0]][shape.coords[1]].canPlace = [];
+    //     _this.updateStage();
+    //   }
+    // });
+
+    for (const { coords, boardCell } of this.board) {
+      const shapeCoords = `${coords[0]}-${coords[1]}`;
+      if (toColorCellsCoords.includes(shapeCoords)) {
+        boardCell.mouseOver = false;
+        boardCell.cell.alpha = 1;
+        boardCell.cell.children[0].graphics._fill.style =
+          this.game.controlBoard.activePlayer.color;
+        boardCell.color = this.game.controlBoard.activePlayer.color;
+        boardCell.canPlace = [];
+        this.stage.update();
+      }
+    }
+
+    // update matrix after placing the shape
+    for (let i = 0; i < this.board.matrix.length; i++) {
+      for (let j = 0; j < this.board.matrix[i].length; j++) {
+        const cell = this.board.matrix[i][j];
+        if (cell.color) {
+          let leftCell, topCell, rightCell, bottomCell;
+          leftCell = this.board.matrix[i][j - 1]
+            ? this.board.matrix[i][j - 1]
+            : null;
+          topCell =
+            this.board.matrix[i - 1] && this.board.matrix[i - 1][j]
+              ? this.board.matrix[i - 1][j]
+              : null;
+          rightCell = this.board.matrix[i][j + 1]
+            ? this.board.matrix[i][j + 1]
+            : null;
+          bottomCell =
+            this.board.matrix[i + 1] && this.board.matrix[i + 1][j]
+              ? this.board.matrix[i + 1][j]
+              : null;
+
+          let topLeftCorner = { coords: [i - 1, j - 1], canPlace: true },
+            topRightCorner = { coords: [i - 1, j + 1], canPlace: true },
+            bottomRightCorner = { coords: [i + 1, j + 1], canPlace: true },
+            bottomLeftCorner = { coords: [i + 1, j - 1], canPlace: true };
+
+          if (
+            !(this.board.matrix[i - 1] && this.board.matrix[i - 1][j - 1]) ||
+            (leftCell && leftCell.color === cell.color) ||
+            (topCell && topCell.color === cell.color)
+          ) {
+            topLeftCorner.canPlace = false;
+          }
+          if (
+            !(this.board.matrix[i - 1] && this.board.matrix[i - 1][j + 1]) ||
+            (topCell && topCell.color === cell.color) ||
+            (rightCell && rightCell.color === cell.color)
+          ) {
+            topRightCorner.canPlace = false;
+          }
+          if (
+            !(this.board.matrix[i + 1] && this.board.matrix[i + 1][j + 1]) ||
+            (rightCell && rightCell.color === cell.color) ||
+            (bottomCell && bottomCell.color === cell.color)
+          ) {
+            bottomRightCorner.canPlace = false;
+          }
+          if (
+            !(this.board.matrix[i + 1] && this.board.matrix[i + 1][j - 1]) ||
+            (bottomCell && bottomCell.color === cell.color) ||
+            (leftCell && leftCell.color === cell.color)
+          ) {
+            bottomLeftCorner.canPlace = false;
+          }
+
+          if (topLeftCorner.canPlace) {
+            this.board.matrix[topLeftCorner.coords[0]][
+              topLeftCorner.coords[1]
+            ].canPlace.push(cell.color);
+          }
+          if (topRightCorner.canPlace) {
+            this.board.matrix[topRightCorner.coords[0]][
+              topRightCorner.coords[1]
+            ].canPlace.push(cell.color);
+          }
+          if (bottomRightCorner.canPlace) {
+            this.board.matrix[bottomRightCorner.coords[0]][
+              bottomRightCorner.coords[1]
+            ].canPlace.push(cell.color);
+          }
+          if (bottomLeftCorner.canPlace) {
+            this.board.matrix[bottomLeftCorner.coords[0]][
+              bottomLeftCorner.coords[1]
+            ].canPlace.push(cell.color);
+          }
+        }
+      }
+    }
+    // update score
+    // const score = _this.stage.children.find(
+    //   (elem) =>
+    //     elem.name ===
+    //     `score${
+    //       _this.activePlayer.color.charAt(0).toUpperCase() +
+    //       _this.activePlayer.color.slice(1)
+    //     }`
+    // );
+
+    // const scoreNum =
+    //   +score.text +
+    //   _this.activeShape.matrix.reduce((acc, elem) => {
+    //     return acc + elem.filter((e) => e === 1).length;
+    //   }, 0);
+
+    // score.text = scoreNum;
+    // _this.updateStage();
+
+    // removing the shape from the board
+    if (
+      this.game.controlBoard.activeShape &&
+      this.game.controlBoard.activeShape.originalCanvasShape &&
+      this.game.controlBoard.activeShape.originalCanvasShape.parent
+    ) {
+      const parent =
+        this.game.controlBoard.activeShape.originalCanvasShape.parent;
+      parent.removeChild(
+        this.game.controlBoard.activeShape.originalCanvasShape
+      );
+    }
+
+    //  remove shape from the player
+    this.game.controlBoard.activePlayer.shapes =
+      this.game.controlBoard.activePlayer.shapes.filter(
+        (shape: GameShape) => shape !== this.game.controlBoard.activeShape
+      );
+
+    // if (this.game.controlBoard.activePlayer.shapes.length === 0) {
+    //   _this.end();
+    // }
+    // this.activeShape = null;
+    // _this.originalActiveShape = null;
+    // // moving to the next player
+    // _this.timeLeft = 0;
+    // if active player is bot
+    return true;
+  } else {
+    return false;
   }
 }
 
@@ -154,16 +493,35 @@ export default class GameBoard extends Board {
   #COLS = 20;
   #ROWS = 20;
 
-  board: CellsBoard | null;
+  board: CellsBoard;
+  boardContainer: Container;
   constructor(
     width: number,
     height: number,
     x: number,
     y: number,
-    stage: GameStage
+    stage: GameStage,
+    game: Game
   ) {
-    super(width, height, x, y, stage);
-    this.board = null;
+    super(width, height, x, y, stage, game);
+    this.boardContainer = this.makeContainer(
+      this.width / 2 - (this.#COLS * this.stage.cellWidth) / 2,
+      this.height / 2 - (this.#ROWS * this.stage.cellWidth) / 2
+    );
+
+    this.board = new CellsBoard(this.boardContainer);
+    // handle draw on hover
+    this.game.socket.on("DRAW_ON_HOVER", (coords: number[]) => {
+      if (this.game.controlBoard.activePlayer !== this.game.me) {
+        drawOnHover.call(this, coords);
+      }
+    });
+    // handle undraw shape on out
+    this.game.socket.on("UNDRAW_ON_OUT", (coords: number[]) => {
+      if (this.game.controlBoard.activePlayer !== this.game.me) {
+        undrawOnOut.call(this, coords);
+      }
+    });
   }
   draw(players: Player[]) {
     this.stage.drawRect(
@@ -212,39 +570,20 @@ export default class GameBoard extends Board {
     );
 
     // board Container
-    this.board = new CellsBoard(
-      this.makeContainer(
-        this.width / 2 - (this.#COLS * this.stage.cellWidth) / 2,
-        this.height / 2 - (this.#ROWS * this.stage.cellWidth) / 2
-      )
+    this.container.setChildIndex(
+      this.boardContainer,
+      this.container.children.length - 1
     );
     this.board.initialize(this.#COLS, this.#ROWS, this.stage);
 
     // allowed places per player
-    const usedColors: string[] = [];
     const positions = this.#POSITIONS();
 
     for (let i = 0; i < this.#PLAYERS_COLORS.length; i++) {
-      let randomColor =
-        this.#PLAYERS_COLORS[
-          Math.floor(Math.random() * this.#PLAYERS_COLORS.length)
-        ];
-
-      // generate random colors until find a color that is not used
-      while (usedColors.includes(randomColor)) {
-        randomColor =
-          this.#PLAYERS_COLORS[
-            Math.floor(Math.random() * this.#PLAYERS_COLORS.length)
-          ];
-      }
-
-      usedColors.push(randomColor);
-
       this.board.matrix[positions[i].startCorner[0]][
         positions[i].startCorner[1]
-      ].canPlace.push(randomColor);
+      ].canPlace.push(players[i].color);
 
-      players[i].color = randomColor;
       this.drawPlayerShapes(positions[i].playerShapesPositions, players[i]);
     }
     this.stage.update();
@@ -259,6 +598,75 @@ export default class GameBoard extends Board {
 
       shape.originalCanvasShape = canvasShape;
       this.container.addChild(canvasShape);
+    }
+  }
+  enable(player: Player) {
+    // add event listeners to the player shapes
+    player.shapes.forEach((shape) => {
+      const canvasShape = shape.canvasShape;
+      if (canvasShape) {
+        canvasShape.cursor = "pointer";
+        canvasShape.on("click", () => {
+          this.game.controlBoard.activeShape = shape;
+          this.game.socket.emit(
+            "ACTIVE_SHAPE",
+            shape.number,
+            this.game.gameCode
+          );
+        });
+        this.stage.update();
+      }
+    });
+    // allow show shape on hover
+    if (this.board && this.game.controlBoard.activePlayer === this.game.me) {
+      for (const { coords, boardCell } of this.board) {
+        // remove color from mouse overed cells from board
+        if (boardCell.mouseOver) {
+          boardCell.cell.cursor = "default";
+          boardCell.cell.children[0].graphics._fill.style = "#CCC";
+          boardCell.mouseOver = false;
+        }
+        boardCell.cell.cursor = "pointer";
+        boardCell.cell.addEventListener(
+          "mouseover",
+          drawOnHover.bind(this, coords)
+        );
+        boardCell.cell.addEventListener(
+          "mouseout",
+          undrawOnOut.bind(this, coords)
+        );
+        boardCell.cell.addEventListener(
+          "click",
+          handleClick.bind(this, coords)
+        );
+        this.stage.update();
+      }
+    }
+  }
+  disable() {
+    // remove all event listeners from all shapes
+    this.game.players.forEach((player) => {
+      player.shapes.forEach((shape) => {
+        const canvasShape = shape.canvasShape;
+        if (canvasShape) {
+          canvasShape.cursor = "default";
+          canvasShape.removeAllEventListeners("click");
+          this.stage.update();
+        }
+      });
+    });
+    // remove color from mouse overed cells from board
+    for (const { boardCell } of this.board) {
+      if (boardCell.mouseOver) {
+        boardCell.cell.children[0].graphics._fill.style = "#CCC";
+        boardCell.mouseOver = false;
+      }
+      // remove all events from cells
+      boardCell.cell.cursor = "default";
+      boardCell.cell.removeAllEventListeners("mouseover");
+      boardCell.cell.removeAllEventListeners("mouseout");
+      boardCell.cell.removeAllEventListeners("click");
+      this.stage.update();
     }
   }
 }

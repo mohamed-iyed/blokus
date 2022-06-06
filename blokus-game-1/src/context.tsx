@@ -1,5 +1,6 @@
 import { createContext, useContext, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import Player from "./game/Player";
 
 const socket: Socket = io("http://localhost:4000/", {
   withCredentials: true,
@@ -15,6 +16,7 @@ const channels: string[] = [
 export interface GameType {
   code: string;
   players: any[];
+  activePlayer: string | null;
 }
 interface ContextType {
   socket: Socket;
@@ -33,7 +35,7 @@ const Context = createContext<ContextType>({
   setStep: () => {},
   error: false,
   setError: () => {},
-  game: { code: "", players: [] },
+  game: { code: "", players: [], activePlayer: null },
   setGame: () => {},
 });
 
@@ -50,7 +52,11 @@ export interface Step {
 export function ContextProvider({ children }: ProviderProps) {
   const [step, setStep] = useState<Step>({ number: 0, type: null });
   const [error, setError] = useState(false);
-  const [game, setGame] = useState({ code: "", players: [] });
+  const [game, setGame] = useState({
+    code: "",
+    players: [],
+    activePlayer: null,
+  });
 
   return (
     <Context.Provider
