@@ -3,7 +3,6 @@ import ControlBoard from "./ControlBoard";
 import GameBoard from "./GameBoard";
 import GameStage from "./GameStage";
 import Player from "./Player";
-import Shape from "./Shape";
 
 interface GameInfo {
   canvas: HTMLCanvasElement;
@@ -80,11 +79,14 @@ export default class Game {
     this.gameBoard.draw(this.players);
     this.controlBoard.draw(this.players);
   }
-
   endTurn() {
-    this.controlBoard.activePlayer = null;
     this.controlBoard.activeShape = null;
     this.controlBoard.endTimer();
-    this.socket.emit("END_TURN", this.gameCode);
+    this.gameBoard.hideCanPlaceZones();
+    this.socket.emit(
+      "END_TURN",
+      this.controlBoard.activePlayer.color,
+      this.gameCode
+    );
   }
 }

@@ -122,6 +122,7 @@ export default class ControlBoard extends Board {
         if (timeLeft) {
           this.timeLeft = timeLeft;
         } else {
+          this.calcScore();
           this.timeLeft = 30;
           this.activeShape = null;
         }
@@ -411,6 +412,9 @@ export default class ControlBoard extends Board {
       this._activeShape.canvasShapeContainer.addChild(
         this._activeShape.canvasShape
       );
+      if (this.activePlayer && this.activePlayer.type === "human") {
+        this.game.gameBoard.showCanPlaceZones();
+      }
     } else {
       this._activeShape.current = null;
       this._activeShape.canvasShapeContainer.removeAllChildren();
@@ -432,19 +436,28 @@ export default class ControlBoard extends Board {
       }
 
       // if active player is me then enable the game board
-      if (this._activePlayer.current === this.game.me) {
-        this._activePlayer.canvasText.text = "You !";
-        this._activePlayer.canvasText.color = this._activePlayer.current.color;
-        this.game.gameBoard.enable(this.game.me);
-        this.startTimer();
+      if (this._activePlayer.current.type === "human") {
+        if (this._activePlayer.current === this.game.me) {
+          this._activePlayer.canvasText.text = "You !";
+          this._activePlayer.canvasText.color =
+            this._activePlayer.current.color;
+          this.game.gameBoard.enable(this.game.me);
+          this.startTimer();
+        } else {
+          this._activePlayer.canvasText.text = this._activePlayer.current.color;
+          this._activePlayer.canvasText.color =
+            this._activePlayer.current.color;
+          this.game.gameBoard.disable();
+        }
       } else {
-        this._activePlayer.canvasText.text = this._activePlayer.current.color;
+        this._activePlayer.canvasText.text = "Bot !";
         this._activePlayer.canvasText.color = this._activePlayer.current.color;
-        this.game.gameBoard.disable();
+        if (this.game.socket.id === this.game.gameCode) {
+          this.game.gameBoard.botTurn();
+        }
       }
     } else {
       this._activePlayer.canvasText.text = null;
-      this.game.gameBoard.disable();
     }
     this.stage.update();
   }
@@ -456,9 +469,14 @@ export default class ControlBoard extends Board {
     this._timeLeft.canvasText.text = newTimeLeft;
     this.stage.update();
   }
-  changeColorScore(color: string, newScore: number) {
-    const score = this.scores.find((elem: Score) => elem.color === color);
-    score.canvasElem.text.text = newScore;
+  calcScore() {
+    const num = this.activeShape.matrix.reduce((acc: number, row: number[]) => {
+      return acc + row.filter((elem: number) => elem === 1).length;
+    }, 0);
+    const score = this.scores.find(
+      (elem: Score) => elem.color === this.activePlayer.color
+    );
+    score.canvasElem.text.text = `${num + +score.canvasElem.text.text}`;
     this.stage.update();
   }
 }

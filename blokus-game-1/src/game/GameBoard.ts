@@ -1,4 +1,5 @@
 import { Container } from "createjs-module";
+import sleep from "../utils/sleep";
 import Board from "./Board";
 import Game from "./Game";
 import GameStage from "./GameStage";
@@ -10,6 +11,7 @@ export interface matrixCell {
   color: null | string;
   cell: Container;
   mouseOver: boolean;
+  canPlaceInZone: boolean;
 }
 
 class CellsBoard {
@@ -37,6 +39,7 @@ class CellsBoard {
           color: null,
           cell,
           mouseOver: false,
+          canPlaceInZone: false,
         });
       }
     }
@@ -136,9 +139,12 @@ function undrawOnOut(this: GameBoard, coords: number[]) {
           this.board.matrix[i + startI][j + startJ] &&
           this.board.matrix[i + startI][j + startJ].mouseOver
         ) {
-          this.board.matrix[i + startI][
-            j + startJ
-          ].cell.children[0].graphics._fill.style = "#CCC";
+          if (!this.board.matrix[i + startI][j + startJ].canPlaceInZone) {
+            this.board.matrix[i + startI][
+              j + startJ
+            ].cell.children[0].graphics._fill.style = "#CCC";
+          }
+
           this.board.matrix[i + startI][j + startJ].mouseOver = false;
           this.stage.update();
         }
@@ -200,6 +206,8 @@ function canPlaceInZone(
 function handleClick(this: GameBoard, coords: number[]) {
   const [x, y] = coords;
   const [startI, startJ] = [x - 2, y - 2];
+
+  console.log(this.game.controlBoard.activeShape);
   if (
     this.game.controlBoard.activeShape &&
     canPlaceInZone.call(
@@ -210,6 +218,13 @@ function handleClick(this: GameBoard, coords: number[]) {
       this.game.controlBoard.activeShape.matrix
     )
   ) {
+    if (
+      this.game.controlBoard.activePlayer === this.game.me ||
+      this.game.controlBoard.activePlayer.type === "bot"
+    ) {
+      this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
+    }
+    console.log(this.game.controlBoard.activePlayer.type);
     // string because of objects reference
     const toColorCellsCoords: string[] = [];
 
@@ -220,43 +235,30 @@ function handleClick(this: GameBoard, coords: number[]) {
         j++
       ) {
         if (this.game.controlBoard.activeShape.matrix[i][j] === 1) {
+          // remove can place in zone because the cell is filled with a color now
+          this.board.matrix[i + startI][j + startJ].canPlaceInZone = false;
           this.board.matrix[i + startI][j + startJ].color =
             this.game.controlBoard.activePlayer.color;
           toColorCellsCoords.push(`${i + startI}-${j + startJ}`);
         }
       }
     }
-    // _this.container.elem.children.forEach((shape) => {
-    //   const shapeCoords = `${shape.coords[0]}-${shape.coords[1]}`;
-    //   if (coords.includes(shapeCoords)) {
-    //     shape.mouseOver = false;
-    //     shape.alpha = 1;
-    //     shape.children[0].graphics._fill.style = _this.activePlayer.color;
-    //     _this.board[shape.coords[0]][shape.coords[1]].color =
-    //       _this.activePlayer.color;
-    //     _this.board[shape.coords[0]][shape.coords[1]].canPlace = [];
-    //     _this.updateStage();
-    //   }
-    // });
-
-    for (const { coords, boardCell } of this.board) {
-      const shapeCoords = `${coords[0]}-${coords[1]}`;
-      if (toColorCellsCoords.includes(shapeCoords)) {
-        boardCell.mouseOver = false;
-        boardCell.cell.alpha = 1;
-        boardCell.cell.children[0].graphics._fill.style =
-          this.game.controlBoard.activePlayer.color;
-        boardCell.color = this.game.controlBoard.activePlayer.color;
-        boardCell.canPlace = [];
-        this.stage.update();
-      }
-    }
 
     // update matrix after placing the shape
     for (let i = 0; i < this.board.matrix.length; i++) {
       for (let j = 0; j < this.board.matrix[i].length; j++) {
-        const cell = this.board.matrix[i][j];
-        if (cell.color) {
+        const shapeCoords = `${i}-${j}`;
+        if (toColorCellsCoords.includes(shapeCoords)) {
+          this.board.matrix[i][j].mouseOver = false;
+          this.board.matrix[i][j].cell.alpha = 1;
+          this.board.matrix[i][j].cell.children[0].graphics._fill.style =
+            this.game.controlBoard.activePlayer.color;
+          this.board.matrix[i][j].color =
+            this.game.controlBoard.activePlayer.color;
+          this.board.matrix[i][j].canPlace = [];
+          this.stage.update();
+        }
+        if (this.board.matrix[i][j].color) {
           let leftCell, topCell, rightCell, bottomCell;
           leftCell = this.board.matrix[i][j - 1]
             ? this.board.matrix[i][j - 1]
@@ -280,29 +282,30 @@ function handleClick(this: GameBoard, coords: number[]) {
 
           if (
             !(this.board.matrix[i - 1] && this.board.matrix[i - 1][j - 1]) ||
-            (leftCell && leftCell.color === cell.color) ||
-            (topCell && topCell.color === cell.color)
+            (leftCell && leftCell.color === this.board.matrix[i][j].color) ||
+            (topCell && topCell.color === this.board.matrix[i][j].color)
           ) {
             topLeftCorner.canPlace = false;
           }
           if (
             !(this.board.matrix[i - 1] && this.board.matrix[i - 1][j + 1]) ||
-            (topCell && topCell.color === cell.color) ||
-            (rightCell && rightCell.color === cell.color)
+            (topCell && topCell.color === this.board.matrix[i][j].color) ||
+            (rightCell && rightCell.color === this.board.matrix[i][j].color)
           ) {
             topRightCorner.canPlace = false;
           }
           if (
             !(this.board.matrix[i + 1] && this.board.matrix[i + 1][j + 1]) ||
-            (rightCell && rightCell.color === cell.color) ||
-            (bottomCell && bottomCell.color === cell.color)
+            (rightCell && rightCell.color === this.board.matrix[i][j].color) ||
+            (bottomCell && bottomCell.color === this.board.matrix[i][j].color)
           ) {
             bottomRightCorner.canPlace = false;
           }
           if (
             !(this.board.matrix[i + 1] && this.board.matrix[i + 1][j - 1]) ||
-            (bottomCell && bottomCell.color === cell.color) ||
-            (leftCell && leftCell.color === cell.color)
+            (bottomCell &&
+              bottomCell.color === this.board.matrix[i][j].color) ||
+            (leftCell && leftCell.color === this.board.matrix[i][j].color)
           ) {
             bottomLeftCorner.canPlace = false;
           }
@@ -310,45 +313,26 @@ function handleClick(this: GameBoard, coords: number[]) {
           if (topLeftCorner.canPlace) {
             this.board.matrix[topLeftCorner.coords[0]][
               topLeftCorner.coords[1]
-            ].canPlace.push(cell.color);
+            ].canPlace.push(this.board.matrix[i][j].color);
           }
           if (topRightCorner.canPlace) {
             this.board.matrix[topRightCorner.coords[0]][
               topRightCorner.coords[1]
-            ].canPlace.push(cell.color);
+            ].canPlace.push(this.board.matrix[i][j].color);
           }
           if (bottomRightCorner.canPlace) {
             this.board.matrix[bottomRightCorner.coords[0]][
               bottomRightCorner.coords[1]
-            ].canPlace.push(cell.color);
+            ].canPlace.push(this.board.matrix[i][j].color);
           }
           if (bottomLeftCorner.canPlace) {
             this.board.matrix[bottomLeftCorner.coords[0]][
               bottomLeftCorner.coords[1]
-            ].canPlace.push(cell.color);
+            ].canPlace.push(this.board.matrix[i][j].color);
           }
         }
       }
     }
-    // update score
-    // const score = _this.stage.children.find(
-    //   (elem) =>
-    //     elem.name ===
-    //     `score${
-    //       _this.activePlayer.color.charAt(0).toUpperCase() +
-    //       _this.activePlayer.color.slice(1)
-    //     }`
-    // );
-
-    // const scoreNum =
-    //   +score.text +
-    //   _this.activeShape.matrix.reduce((acc, elem) => {
-    //     return acc + elem.filter((e) => e === 1).length;
-    //   }, 0);
-
-    // score.text = scoreNum;
-    // _this.updateStage();
-
     // removing the shape from the board
     if (
       this.game.controlBoard.activeShape &&
@@ -371,15 +355,21 @@ function handleClick(this: GameBoard, coords: number[]) {
     // if (this.game.controlBoard.activePlayer.shapes.length === 0) {
     //   _this.end();
     // }
-    // this.activeShape = null;
-    // _this.originalActiveShape = null;
-    // // moving to the next player
-    // _this.timeLeft = 0;
-    // if active player is bot
+    this.game.controlBoard.calcScore();
+
+    if (
+      this.game.controlBoard.activePlayer === this.game.me ||
+      this.game.controlBoard.activePlayer.type === "bot"
+    ) {
+      this.game.endTurn();
+    } else {
+      this.game.controlBoard.activeShape = null;
+      this.game.controlBoard.endTimer();
+    }
+    // if active player is bot true means can place / false means can't place
     return true;
-  } else {
-    return false;
   }
+  return false;
 }
 
 export default class GameBoard extends Board {
@@ -522,6 +512,15 @@ export default class GameBoard extends Board {
         undrawOnOut.call(this, coords);
       }
     });
+    // place shape in board
+    this.game.socket.on("PLACE_SHAPE", (coords: number[]) => {
+      if (
+        this.game.controlBoard.activePlayer !== this.game.me ||
+        this.game.controlBoard.activePlayer.type === "bot"
+      ) {
+        handleClick.call(this, coords);
+      }
+    });
   }
   draw(players: Player[]) {
     this.stage.drawRect(
@@ -601,6 +600,7 @@ export default class GameBoard extends Board {
     }
   }
   enable(player: Player) {
+    this.hideCanPlaceZones();
     // add event listeners to the player shapes
     player.shapes.forEach((shape) => {
       const canvasShape = shape.canvasShape;
@@ -655,11 +655,16 @@ export default class GameBoard extends Board {
         }
       });
     });
-    // remove color from mouse overed cells from board
+    // remove color from mouse hovered cells from board
     for (const { boardCell } of this.board) {
       if (boardCell.mouseOver) {
-        boardCell.cell.children[0].graphics._fill.style = "#CCC";
         boardCell.mouseOver = false;
+        boardCell.cell.children[0].graphics._fill.style = "#CCC";
+      }
+      if (boardCell.canPlaceInZone) {
+        boardCell.canPlaceInZone = false;
+        boardCell.cell.alpha = 1;
+        boardCell.cell.children[0].graphics._fill.style = "#CCC";
       }
       // remove all events from cells
       boardCell.cell.cursor = "default";
@@ -668,5 +673,111 @@ export default class GameBoard extends Board {
       boardCell.cell.removeAllEventListeners("click");
       this.stage.update();
     }
+  }
+  showCanPlaceZones() {
+    this.hideCanPlaceZones();
+    for (const { coords, boardCell } of this.board) {
+      if (
+        canPlaceInZone.call(
+          this,
+          coords[0] - 2,
+          coords[1] - 2,
+          this.game.controlBoard.activePlayer.color,
+          this.game.controlBoard.activeShape.matrix
+        )
+      ) {
+        boardCell.canPlaceInZone = true;
+        boardCell.cell.alpha = 0.4;
+        boardCell.cell.children[0].graphics._fill.style =
+          this.game.controlBoard.activePlayer.color;
+        this.stage.update();
+      }
+    }
+  }
+  hideCanPlaceZones() {
+    for (const { boardCell } of this.board) {
+      if (boardCell.canPlaceInZone) {
+        boardCell.canPlaceInZone = false;
+        boardCell.cell.alpha = 1;
+        boardCell.cell.children[0].graphics._fill.style = "#CCC";
+      }
+    }
+  }
+  botTurn() {
+    sleep(500).then(() => {
+      let triedShapes: GameShape[] = [];
+      mainLoop: while (true) {
+        if (
+          triedShapes.length ===
+          this.game.controlBoard.activePlayer.shapes.length
+        ) {
+          console.log("done");
+          break mainLoop;
+        }
+
+        // pick a random shape
+        const shape =
+          this.game.controlBoard.activePlayer.shapes[
+            Math.floor(
+              Math.random() * this.game.controlBoard.activePlayer.shapes.length
+            )
+          ];
+        if (!triedShapes.includes(shape)) {
+          triedShapes.push(shape);
+        }
+
+        this.game.controlBoard.activeShape = shape;
+        this.game.socket.emit("ACTIVE_SHAPE", shape.number, this.game.gameCode);
+
+        for (const { coords } of this.board) {
+          if (handleClick.call(this, coords)) {
+            this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
+            break mainLoop;
+          }
+        }
+        // three left rotates
+        for (let k = 0; k < 3; k++) {
+          this.game.controlBoard.activeShape = shape.rotateLeft();
+          this.game.socket.emit(
+            "ACTIVE_SHAPE",
+            shape.number,
+            this.game.gameCode
+          );
+          for (const { coords } of this.board) {
+            if (handleClick.call(this, coords)) {
+              this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
+              break mainLoop;
+            }
+          }
+        }
+        // back to the same shape
+        this.game.controlBoard.activeShape = shape.rotateLeft();
+        this.game.socket.emit("ACTIVE_SHAPE", shape.number, this.game.gameCode);
+        // three right rotates
+        for (let k = 0; k < 3; k++) {
+          this.game.controlBoard.activeShape = shape.rotateRight();
+          this.game.socket.emit(
+            "ACTIVE_SHAPE",
+            shape.number,
+            this.game.gameCode
+          );
+          for (const { coords } of this.board) {
+            if (handleClick.call(this, coords)) {
+              this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
+              break mainLoop;
+            }
+          }
+        }
+        // back to same shape then flip / a flip
+        this.game.controlBoard.activeShape = shape.rotateRight().flip();
+        this.game.socket.emit("ACTIVE_SHAPE", shape.number, this.game.gameCode);
+        for (const { coords } of this.board) {
+          if (handleClick.call(this, coords)) {
+            this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
+            break mainLoop;
+          }
+        }
+      }
+    });
   }
 }

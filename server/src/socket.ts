@@ -55,6 +55,10 @@ const channels: Channels = {
     name: "UNDRAW_ON_OUT",
     handler: undrawOnOutHandler,
   },
+  ps: {
+    name: "PLACE_SHAPE",
+    handler: placeShapeHandler,
+  },
 };
 interface This {
   socket: Socket;
@@ -146,11 +150,11 @@ function socketDisconnectHandler(this: This) {
   }
 }
 // end turn if timeout or player has left the room or player placed his shape
-function endTurnHandler(this: This, gameId: string) {
+function endTurnHandler(this: This, color: string, gameId: string) {
   const room = rooms.get(gameId);
   if (room) {
     const playerIndex = room.players.findIndex(
-      (player) => player.id === this.socket.id
+      (player) => player.color === color
     );
     if (playerIndex !== -1) {
       let nextPlayerIndex;
@@ -200,7 +204,15 @@ function undrawOnOutHandler(this: This, coords: number[], gameId: string) {
     this.io.to(gameId).emit("UNDRAW_ON_OUT", coords);
   }
 }
-
+// place shape in board
+function placeShapeHandler(this: This, coords: number[], gameId: string) {
+  console.log("placeshape");
+  const room = rooms.get(gameId);
+  if (room) {
+    this.io.to(gameId).emit("PLACE_SHAPE", coords);
+  }
+}
+// init fn
 export default function init(this: Server, socket: Socket) {
   for (const key of Object.keys(channels)) {
     socket.on(
