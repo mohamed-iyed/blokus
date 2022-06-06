@@ -47,9 +47,13 @@ const channels: Channels = {
     name: "CHANGE_ACTIVE_SHAPE",
     handler: changeActiveShapeHandler,
   },
-  hob: {
-    name: "HOVER_ON_BOARD",
-    handler: hoverOnBoardHandler,
+  doh: {
+    name: "DRAW_ON_HOVER",
+    handler: drawOnHoverHandler,
+  },
+  udoo: {
+    name: "UNDRAW_ON_OUT",
+    handler: undrawOnOutHandler,
   },
 };
 interface This {
@@ -183,7 +187,19 @@ function changeActiveShapeHandler(this: This, status: string, gameId: string) {
   }
 }
 // when player hover on board with an active shape
-function hoverOnBoardHandler(this: This) {}
+function drawOnHoverHandler(this: This, coords: number[], gameId: string) {
+  const room = rooms.get(gameId);
+  if (room) {
+    this.io.to(gameId).emit("DRAW_ON_HOVER", coords);
+  }
+}
+// when player leaves the board with an active shape
+function undrawOnOutHandler(this: This, coords: number[], gameId: string) {
+  const room = rooms.get(gameId);
+  if (room) {
+    this.io.to(gameId).emit("UNDRAW_ON_OUT", coords);
+  }
+}
 
 export default function init(this: Server, socket: Socket) {
   for (const key of Object.keys(channels)) {
