@@ -36,16 +36,16 @@ export default class Rooms {
       throw new Error("room not found");
     }
   }
-  removePlayer(gameId: string, playerId: string) {
+  removePlayer(gameId: string, playerId: string | undefined) {
     if (this.has(gameId)) {
       const room = this.get(gameId);
-      if (room) {
+      if (room && playerId) {
         const players = room.players;
         for (const player of players) {
           if (player.id === playerId) {
             const index = players.indexOf(player);
             players.splice(index, 1);
-            return;
+            return index;
           }
         }
       }

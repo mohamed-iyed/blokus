@@ -28,6 +28,7 @@ function Step1() {
         onChange={(e) =>
           setGame((prev: GameType) => ({ ...prev, code: e.target.value }))
         }
+        autoFocus={true}
       />
       <div className="flex gap-4">
         <NavBtn text="Back" cb={() => setStep({ type: null, number: 0 })} />
@@ -40,7 +41,6 @@ function Step2() {
   const {
     game: { code, players },
     setStep,
-    socket,
   } = useAppContext();
   const [ticked, setTicked] = useState(false);
 

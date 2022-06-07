@@ -98,7 +98,7 @@ export default class ControlBoard extends Board {
   private skipTurnBtn: Container | null = null;
   private endGameBtn: Container | null = null;
   private doneBtn: Container | null = null;
-  private restartGameBtn: Container | null = null;
+  private yourColor: Container | null = null;
 
   constructor(
     width: number,
@@ -123,7 +123,6 @@ export default class ControlBoard extends Board {
           this.timeLeft = timeLeft;
         } else {
           this.calcScore();
-          this.timeLeft = 30;
           this.activeShape = null;
         }
       }
@@ -324,6 +323,11 @@ export default class ControlBoard extends Board {
     // skip turn btn
     this.skipTurnBtn = this.makeContainer(25, 650);
     this.skipTurnBtn.cursor = "pointer";
+    this.skipTurnBtn.on("click", () => {
+      if (this.activePlayer && this.activePlayer === this.game.me) {
+        this.game.endTurn();
+      }
+    });
     this.stage.drawRect("#CCC", 0, 0, 120, 50, this.skipTurnBtn);
     this.stage.addText(
       "Skip turn",
@@ -338,6 +342,19 @@ export default class ControlBoard extends Board {
     // done btn
     this.doneBtn = this.makeContainer(275, 650);
     this.doneBtn.cursor = "pointer";
+    this.doneBtn.on(
+      "click",
+      () => {
+        if (this.activePlayer) {
+          if (this.activePlayer === this.game.me) {
+            this.game.endTurn();
+          }
+          this.game.socket.emit("DONE", this.game.gameCode, this.game.me.color);
+        }
+      },
+      undefined,
+      true
+    );
     this.stage.drawRect("#CCC", 0, 0, 90, 50, this.doneBtn);
     this.stage.addText(
       "Done",
@@ -348,11 +365,29 @@ export default class ControlBoard extends Board {
       25,
       this.doneBtn
     );
+    if (this.game.me && this.game.me.color) {
+      // Your color
+      this.yourColor = this.makeContainer(105, 710);
+      this.stage.drawRect("#CCC", 0, 0, 200, 40, this.yourColor);
+      this.stage.addText(
+        `Your color : ${this.game.me.color}`,
+        "bold 20px Arial",
+        this.game.me.color,
+        "center",
+        100,
+        20,
+        this.yourColor
+      );
+    }
   }
   drawControlBtns() {
     // end game btn
     this.endGameBtn = this.makeContainer(150, 650);
     this.endGameBtn.cursor = "pointer";
+    this.endGameBtn.on("click", () => {
+      this.game.socket.emit("END_GAME", this.game.gameCode);
+      this.game.end();
+    });
     this.stage.drawRect("#CCC", 0, 0, 120, 50, this.endGameBtn);
     this.stage.addText(
       "End game",
@@ -363,21 +398,9 @@ export default class ControlBoard extends Board {
       25,
       this.endGameBtn
     );
-    // restart game btn
-    this.restartGameBtn = this.makeContainer(130, 710);
-    this.restartGameBtn.cursor = "pointer";
-    this.stage.drawRect("#CCC", 0, 0, 150, 50, this.restartGameBtn);
-    this.stage.addText(
-      "Restart Game",
-      "bold 20px Arial",
-      "#FAFAFA",
-      "center",
-      75,
-      25,
-      this.restartGameBtn
-    );
   }
   startTimer() {
+    this._timeLeft.current = 30;
     this._timeLeft.timer = setInterval(() => {
       this.timeLeft = --this._timeLeft.current;
       this.game.socket.emit(
@@ -392,7 +415,6 @@ export default class ControlBoard extends Board {
   }
   endTimer() {
     clearInterval(this._timeLeft.timer);
-    this.timeLeft = 30;
   }
   get activeShape() {
     return this._activeShape.current;
@@ -412,7 +434,7 @@ export default class ControlBoard extends Board {
       this._activeShape.canvasShapeContainer.addChild(
         this._activeShape.canvasShape
       );
-      if (this.activePlayer && this.activePlayer.type === "human") {
+      if (this.activePlayer.type === "human") {
         this.game.gameBoard.showCanPlaceZones();
       }
     } else {
@@ -440,18 +462,24 @@ export default class ControlBoard extends Board {
         if (this._activePlayer.current === this.game.me) {
           this._activePlayer.canvasText.text = "You !";
           this._activePlayer.canvasText.color =
-            this._activePlayer.current.color;
+            this._activePlayer.current.color === "yellow"
+              ? "#F7C600"
+              : this._activePlayer.current.color;
           this.game.gameBoard.enable(this.game.me);
           this.startTimer();
         } else {
           this._activePlayer.canvasText.text = this._activePlayer.current.color;
           this._activePlayer.canvasText.color =
-            this._activePlayer.current.color;
-          this.game.gameBoard.disable();
+            this._activePlayer.current.color === "yellow"
+              ? "#F7C600"
+              : this._activePlayer.current.color;
         }
       } else {
         this._activePlayer.canvasText.text = "Bot !";
-        this._activePlayer.canvasText.color = this._activePlayer.current.color;
+        this._activePlayer.canvasText.color =
+          this._activePlayer.current.color === "yellow"
+            ? "#F7C600"
+            : this._activePlayer.current.color;
         if (this.game.socket.id === this.game.gameCode) {
           this.game.gameBoard.botTurn();
         }
@@ -470,13 +498,18 @@ export default class ControlBoard extends Board {
     this.stage.update();
   }
   calcScore() {
-    const num = this.activeShape.matrix.reduce((acc: number, row: number[]) => {
-      return acc + row.filter((elem: number) => elem === 1).length;
-    }, 0);
-    const score = this.scores.find(
-      (elem: Score) => elem.color === this.activePlayer.color
-    );
-    score.canvasElem.text.text = `${num + +score.canvasElem.text.text}`;
-    this.stage.update();
+    if (this.activeShape) {
+      const num = this.activeShape.matrix.reduce(
+        (acc: number, row: number[]) => {
+          return acc + row.filter((elem: number) => elem === 1).length;
+        },
+        0
+      );
+      const score = this.scores.find(
+        (elem: Score) => elem.color === this.activePlayer.color
+      );
+      score.canvasElem.text.text = `${num + +score.canvasElem.text.text}`;
+      this.stage.update();
+    }
   }
 }

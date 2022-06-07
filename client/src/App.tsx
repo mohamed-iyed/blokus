@@ -6,6 +6,7 @@ import Welcome from "./components/Welcome";
 import { GameType, useAppContext } from "./context";
 import "react-toastify/dist/ReactToastify.min.css";
 import Player from "./game/Player";
+import sleep from "./utils/sleep";
 
 type allowedTypes = "success" | "error" | "info" | "warning";
 
@@ -38,13 +39,15 @@ export default function App() {
       // set the active player
       setGame((prev: GameType) => ({ ...prev, activePlayer }));
       // start the game
-      if (socket.id && game.code) {
-        if (socket.id === game.code) {
-          setStep({ number: 3, type: "createGame" });
-        } else {
-          setStep({ number: 3, type: "joinGame" });
+      sleep(1000).then(() => {
+        if (socket.id && game.code) {
+          if (socket.id === game.code) {
+            setStep({ number: 3, type: "createGame" });
+          } else {
+            setStep({ number: 3, type: "joinGame" });
+          }
         }
-      }
+      });
     },
     [game.code, socket.id]
   );
@@ -52,6 +55,10 @@ export default function App() {
   // handle change active player
   const handleActivePlayer = useCallback((activePlayer: string | null) => {
     setGame((prev: GameType) => ({ ...prev, activePlayer }));
+  }, []);
+  // if the creator ends the game
+  const endGameHandler = useCallback(() => {
+    setStep({ type: null, number: 0 });
   }, []);
 
   useEffect(() => {
@@ -61,6 +68,7 @@ export default function App() {
     socket.on("GAME_DELETED", handleGameDelete);
     socket.on("START_GAME", handleStartGame);
     socket.on("ACTIVE_PLAYER", handleActivePlayer);
+    socket.on("END_GAME", endGameHandler);
 
     return () => {
       socket.off("NOTIFY", handleNotify);
@@ -69,9 +77,11 @@ export default function App() {
       socket.off("GAME_DELETED", handleGameDelete);
       socket.off("START_GAME", handleStartGame);
       socket.off("ACTIVE_PLAYER", handleActivePlayer);
+      socket.off("END_GAME", endGameHandler);
     };
   }, [
     handleNotify,
+    endGameHandler,
     handleGameDelete,
     handleGamePlayersChange,
     handleGameDelete,
@@ -97,7 +107,7 @@ export default function App() {
   return (
     <main className="min-h-screen bg-slate-100 flex items-center justify-center">
       <ToastContainer />
-      <div className="container flex justify-center py-6 px-4 w-[300px] sm:w-auto min-h-[200px] bg-white rounded-md border shadow-md">
+      <div className="container flex justify-center py-6 px-16 min-w-[300px] sm:w-auto min-h-[200px] bg-white rounded-md border shadow-md">
         {content}
       </div>
     </main>

@@ -44,6 +44,12 @@ export default class Game {
     this.socket = socket;
     this.gameCode = gameCode;
 
+    this.socket.on("GAME_FINISHED", () => {
+      this.controlBoard.activePlayer = null;
+      this.controlBoard.activeShape = null;
+      this.controlBoard.endTimer();
+    });
+
     // calculate dimensions
     let controlBoardWidth;
     if (!gameBoardWidth) {
@@ -75,18 +81,26 @@ export default class Game {
       this
     );
   }
+
   start() {
     this.gameBoard.draw(this.players);
     this.controlBoard.draw(this.players);
   }
   endTurn() {
+    this.gameBoard.disable();
     this.controlBoard.activeShape = null;
     this.controlBoard.endTimer();
-    this.gameBoard.hideCanPlaceZones();
+    if (this.controlBoard.activePlayer.type === "human") {
+      this.gameBoard.hideCanPlaceZones();
+    }
     this.socket.emit(
       "END_TURN",
       this.controlBoard.activePlayer.color,
       this.gameCode
     );
+  }
+  end() {
+    this.gameStage.stage.removeAllChildren();
+    this.gameStage.update();
   }
 }

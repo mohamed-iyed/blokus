@@ -207,7 +207,6 @@ function handleClick(this: GameBoard, coords: number[]) {
   const [x, y] = coords;
   const [startI, startJ] = [x - 2, y - 2];
 
-  console.log(this.game.controlBoard.activeShape);
   if (
     this.game.controlBoard.activeShape &&
     canPlaceInZone.call(
@@ -220,11 +219,11 @@ function handleClick(this: GameBoard, coords: number[]) {
   ) {
     if (
       this.game.controlBoard.activePlayer === this.game.me ||
-      this.game.controlBoard.activePlayer.type === "bot"
+      (this.game.controlBoard.activePlayer.type === "bot" &&
+        this.game.socket.id === this.game.gameCode)
     ) {
       this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
     }
-    console.log(this.game.controlBoard.activePlayer.type);
     // string because of objects reference
     const toColorCellsCoords: string[] = [];
 
@@ -352,14 +351,27 @@ function handleClick(this: GameBoard, coords: number[]) {
         (shape: GameShape) => shape !== this.game.controlBoard.activeShape
       );
 
-    // if (this.game.controlBoard.activePlayer.shapes.length === 0) {
-    //   _this.end();
-    // }
+    if (
+      this.game.controlBoard.activePlayer.shapes.length === 0 &&
+      (this.game.controlBoard.activePlayer === this.game.me ||
+        (this.game.controlBoard.activePlayer.type === "bot" &&
+          this.game.socket.id === this.game.gameCode))
+    ) {
+      console.log("done", this.game.controlBoard.activePlayer.color);
+      this.game.endTurn();
+      this.game.socket.emit(
+        "DONE",
+        this.game.gameCode,
+        this.game.controlBoard.activePlayer.color
+      );
+      this.game.endTurn();
+    }
     this.game.controlBoard.calcScore();
 
     if (
       this.game.controlBoard.activePlayer === this.game.me ||
-      this.game.controlBoard.activePlayer.type === "bot"
+      (this.game.controlBoard.activePlayer.type === "bot" &&
+        this.game.socket.id === this.game.gameCode)
     ) {
       this.game.endTurn();
     } else {
@@ -516,7 +528,8 @@ export default class GameBoard extends Board {
     this.game.socket.on("PLACE_SHAPE", (coords: number[]) => {
       if (
         this.game.controlBoard.activePlayer !== this.game.me ||
-        this.game.controlBoard.activePlayer.type === "bot"
+        (this.game.controlBoard.activePlayer.type === "bot" &&
+          this.game.socket.id !== this.game.gameCode)
       ) {
         handleClick.call(this, coords);
       }
@@ -614,9 +627,9 @@ export default class GameBoard extends Board {
             this.game.gameCode
           );
         });
-        this.stage.update();
       }
     });
+    this.stage.update();
     // allow show shape on hover
     if (this.board && this.game.controlBoard.activePlayer === this.game.me) {
       for (const { coords, boardCell } of this.board) {
@@ -639,8 +652,8 @@ export default class GameBoard extends Board {
           "click",
           handleClick.bind(this, coords)
         );
-        this.stage.update();
       }
+      this.stage.update();
     }
   }
   disable() {
@@ -651,10 +664,10 @@ export default class GameBoard extends Board {
         if (canvasShape) {
           canvasShape.cursor = "default";
           canvasShape.removeAllEventListeners("click");
-          this.stage.update();
         }
       });
     });
+    this.stage.update();
     // remove color from mouse hovered cells from board
     for (const { boardCell } of this.board) {
       if (boardCell.mouseOver) {
@@ -671,8 +684,8 @@ export default class GameBoard extends Board {
       boardCell.cell.removeAllEventListeners("mouseover");
       boardCell.cell.removeAllEventListeners("mouseout");
       boardCell.cell.removeAllEventListeners("click");
-      this.stage.update();
     }
+    this.stage.update();
   }
   showCanPlaceZones() {
     this.hideCanPlaceZones();
@@ -704,6 +717,7 @@ export default class GameBoard extends Board {
     }
   }
   botTurn() {
+    this.disable();
     sleep(500).then(() => {
       let triedShapes: GameShape[] = [];
       mainLoop: while (true) {
@@ -711,7 +725,12 @@ export default class GameBoard extends Board {
           triedShapes.length ===
           this.game.controlBoard.activePlayer.shapes.length
         ) {
-          console.log("done");
+          this.game.endTurn();
+          this.game.socket.emit(
+            "DONE",
+            this.game.gameCode,
+            this.game.controlBoard.activePlayer.color
+          );
           break mainLoop;
         }
 
@@ -731,7 +750,6 @@ export default class GameBoard extends Board {
 
         for (const { coords } of this.board) {
           if (handleClick.call(this, coords)) {
-            this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
             break mainLoop;
           }
         }
@@ -739,41 +757,51 @@ export default class GameBoard extends Board {
         for (let k = 0; k < 3; k++) {
           this.game.controlBoard.activeShape = shape.rotateLeft();
           this.game.socket.emit(
-            "ACTIVE_SHAPE",
-            shape.number,
+            "CHANGE_ACTIVE_SHAPE",
+            "rotateLeft",
             this.game.gameCode
           );
           for (const { coords } of this.board) {
             if (handleClick.call(this, coords)) {
-              this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
               break mainLoop;
             }
           }
         }
         // back to the same shape
         this.game.controlBoard.activeShape = shape.rotateLeft();
-        this.game.socket.emit("ACTIVE_SHAPE", shape.number, this.game.gameCode);
+        this.game.socket.emit(
+          "CHANGE_ACTIVE_SHAPE",
+          "rotateLeft",
+          this.game.gameCode
+        );
         // three right rotates
         for (let k = 0; k < 3; k++) {
           this.game.controlBoard.activeShape = shape.rotateRight();
           this.game.socket.emit(
-            "ACTIVE_SHAPE",
-            shape.number,
+            "CHANGE_ACTIVE_SHAPE",
+            "rotateRight",
             this.game.gameCode
           );
           for (const { coords } of this.board) {
             if (handleClick.call(this, coords)) {
-              this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
               break mainLoop;
             }
           }
         }
         // back to same shape then flip / a flip
         this.game.controlBoard.activeShape = shape.rotateRight().flip();
-        this.game.socket.emit("ACTIVE_SHAPE", shape.number, this.game.gameCode);
+        this.game.socket.emit(
+          "CHANGE_ACTIVE_SHAPE",
+          "rotateRight",
+          this.game.gameCode
+        );
+        this.game.socket.emit(
+          "CHANGE_ACTIVE_SHAPE",
+          "flip",
+          this.game.gameCode
+        );
         for (const { coords } of this.board) {
           if (handleClick.call(this, coords)) {
-            this.game.socket.emit("PLACE_SHAPE", coords, this.game.gameCode);
             break mainLoop;
           }
         }

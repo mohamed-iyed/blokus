@@ -140,8 +140,6 @@ function Step1() {
 }
 function Step2() {
   const {
-    socket,
-
     game: { code, players },
   } = useAppContext();
   const [ticked, setTicked] = useState(false);
@@ -222,6 +220,7 @@ function Step3() {
     newGame.controlBoard.drawControlBtns();
     newGame.controlBoard.activePlayer = game.activePlayer;
   }, []);
+
   return (
     <canvas id="canvas" ref={canvasRef} width="1200" height="800">
       <h1>Your Browser does not support CANVAS API</h1>

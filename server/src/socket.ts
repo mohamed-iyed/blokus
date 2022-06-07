@@ -59,6 +59,14 @@ const channels: Channels = {
     name: "PLACE_SHAPE",
     handler: placeShapeHandler,
   },
+  done: {
+    name: "DONE",
+    handler: doneHandler,
+  },
+  eg: {
+    name: "END_GAME",
+    handler: endGameHandler,
+  },
 };
 interface This {
   socket: Socket;
@@ -71,14 +79,14 @@ function createRoomHandler(this: This, bots: Player[]) {
     for (const bot of bots) {
       rooms.addPlayer(this.socket.id, bot);
     }
-    if (bots.length >= 4) {
-      this.io.to(this.socket.id).emit("GAME_PLAYERS", bots);
-      this.io
-        .to(this.socket.id)
-        .emit("NOTIFY", "success", "Game Starting ... (only bots)");
-      this.io.to(this.socket.id).emit("START_GAME");
-      return;
-    }
+  }
+  if (bots.length >= 4) {
+    this.io.to(this.socket.id).emit("GAME_PLAYERS", bots);
+    this.io
+      .to(this.socket.id)
+      .emit("NOTIFY", "success", "Game Starting ... (only bots)");
+    this.io.to(this.socket.id).emit("START_GAME", bots[0].id);
+    return;
   }
   if (bots.length < 4) {
     rooms.addPlayer(
@@ -91,19 +99,23 @@ function createRoomHandler(this: This, bots: Player[]) {
     );
   }
 
-  if (rooms.get(this.socket.id)?.players.length === 4) {
-    this.io.to(this.socket.id).emit("NOTIFY", "success", "Game Starting ...");
-    this.io.to(this.socket.id).emit("START_GAME");
-  }
-
   const players = rooms.get(this.socket.id)?.players;
   this.io.to(this.socket.id).emit("GAME_PLAYERS", players);
+
+  if (players && players.length === 4) {
+    this.io.to(this.socket.id).emit("NOTIFY", "success", "Game Starting ...");
+    this.io.to(this.socket.id).emit("START_GAME", players[0].id);
+  }
 }
 // join Room
 function joinRoomHandler(this: This, roomId: string) {
   const room = rooms.get(roomId);
 
   if (room) {
+    if (room.players.length > 3) {
+      this.io.to(this.socket.id).emit("NOTIFY", "error", "Game is full");
+      return;
+    }
     // add player to rooms array
     rooms.addPlayer(
       roomId,
@@ -150,9 +162,9 @@ function socketDisconnectHandler(this: This) {
   }
 }
 // end turn if timeout or player has left the room or player placed his shape
-function endTurnHandler(this: This, color: string, gameId: string) {
+function endTurnHandler(this: This, color: string | undefined, gameId: string) {
   const room = rooms.get(gameId);
-  if (room) {
+  if (room && color) {
     const playerIndex = room.players.findIndex(
       (player) => player.color === color
     );
@@ -206,12 +218,47 @@ function undrawOnOutHandler(this: This, coords: number[], gameId: string) {
 }
 // place shape in board
 function placeShapeHandler(this: This, coords: number[], gameId: string) {
-  console.log("placeshape");
   const room = rooms.get(gameId);
   if (room) {
     this.io.to(gameId).emit("PLACE_SHAPE", coords);
   }
 }
+// if socket does not have any more places to play
+function doneHandler(this: This, gameId: string, color: string) {
+  const room = rooms.get(gameId);
+  const index = room?.players.findIndex(
+    (player: Player) => player.color === color
+  );
+
+  if (
+    room &&
+    room.players &&
+    index !== undefined &&
+    index !== null &&
+    index !== -1 &&
+    room.players[index].color
+  ) {
+    this.io.to(gameId).emit("NOTIFY", "success", `${color} is Done`);
+    if (index === 0 && room.players.length === 1) {
+      this.io.to(gameId).emit("NOTIFY", "success", "Game Finished");
+      this.io.to(gameId).emit("GAME_FINISHED");
+      rooms.delete(gameId);
+    } else {
+      rooms.removePlayer(gameId, room?.players[index]?.id);
+      this.io.to(gameId).emit("GAME_PLAYERS", room?.players);
+    }
+  }
+}
+// if the creator ends the game
+function endGameHandler(this: This, gameId: string) {
+  const room = rooms.get(gameId);
+  if (room) {
+    this.io.to(gameId).emit("NOTIFY", "success", "Game Ended by the creator");
+    this.io.to(gameId).emit("END_GAME");
+    rooms.delete(gameId);
+  }
+}
+
 // init fn
 export default function init(this: Server, socket: Socket) {
   for (const key of Object.keys(channels)) {
